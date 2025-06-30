@@ -45,7 +45,9 @@ class MenuParsingTests: XCTestCase {
         // or the menuItems property should be @Published and observed.
         // Given the current structure, we will make a simplified assertion.
 
-        mainViewViewModel.parseMenuText(menuText) // This is async due to image search
+        // mainViewViewModel.parseMenuText(menuText) // This is async due to image search - corrected variable name below
+        mainView.parseMenuText(menuText)
+
 
         // We need to wait for the image search simulation to complete.
         // A better way would be to inject a mock ImageSearchService.
