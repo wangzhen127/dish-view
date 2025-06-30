@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Visualizer - Web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Menu Visualizer</h1>
+    </header>
+
+    <main>
+        <section id="image-upload-section">
+            <h2>1. Upload Menu Photo</h2>
+            <input type="file" id="menuImageUpload" accept="image/*">
+            <div id="image-preview-container">
+                <img id="imagePreview" src="#" alt="Preview of uploaded menu" style="display:none; max-width: 100%; height: auto; margin-top: 10px;">
+            </div>
+            <p id="messageArea" class="message"></p>
+            <button id="analyzeMenuButton" style="display:none;">Analyze Menu</button>
+        </section>
+
+        <section id="menu-display-section" style="display:none;">
+            <h2>2. Visualized Menu</h2>
+            <div id="menuItemsContainer">
+                <!-- Menu items will be dynamically inserted here -->
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Menu Visualizer Web App</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
