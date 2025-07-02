@@ -39,7 +39,7 @@ extension UIImage {
         return resized(to: newSize)
     }
     
-    func jpegData(compressionQuality: CGFloat = 0.8) -> Data? {
+    func toJPEGData(compressionQuality: CGFloat = 0.8) -> Data? {
         return self.jpegData(compressionQuality: compressionQuality)
     }
 } 

@@ -23,8 +23,11 @@ class OCRProcessor: ObservableObject {
     
     func extractRestaurantName(from images: [UIImage]) async throws -> String? {
         guard let firstImage = images.first else {
+            print("No images provided for restaurant name extraction")
             throw OCRError.invalidImage
         }
+        
+        print("Extracting restaurant name from image with size: \(firstImage.size)")
         
         let prompt = """
         Analyze this restaurant menu image and extract the restaurant name.
@@ -33,7 +36,14 @@ class OCRProcessor: ObservableObject {
         If no clear restaurant name is found, return null.
         """
         
-        return try await geminiService.analyzeImage(firstImage, prompt: prompt)
+        do {
+            let result = try await geminiService.analyzeImage(firstImage, prompt: prompt)
+            print("Restaurant name extraction result: \(result ?? "null")")
+            return result
+        } catch {
+            print("Failed to extract restaurant name: \(error)")
+            throw error
+        }
     }
     
     func extractDishes(from images: [UIImage]) async throws -> [Dish] {
@@ -79,17 +89,39 @@ class OCRProcessor: ObservableObject {
     }
     
     private func parseDishesFromJSON(_ jsonString: String?) -> [Dish] {
-        guard let jsonString = jsonString,
-              let data = jsonString.data(using: .utf8) else {
+        guard let jsonString = jsonString else {
+            return []
+        }
+        
+        // Clean up the JSON string - remove markdown code blocks if present
+        var cleanJSON = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove markdown code blocks (```json ... ```)
+        if cleanJSON.hasPrefix("```json") {
+            cleanJSON = String(cleanJSON.dropFirst(7)) // Remove "```json"
+        }
+        if cleanJSON.hasPrefix("```") {
+            cleanJSON = String(cleanJSON.dropFirst(3)) // Remove "```"
+        }
+        if cleanJSON.hasSuffix("```") {
+            cleanJSON = String(cleanJSON.dropLast(3)) // Remove "```"
+        }
+        
+        cleanJSON = cleanJSON.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard let data = cleanJSON.data(using: .utf8) else {
+            print("Failed to convert JSON string to data")
             return []
         }
         
         do {
             let decoder = JSONDecoder()
             let response = try decoder.decode(DishResponse.self, from: data)
+            print("Successfully parsed \(response.dishes.count) dishes")
             return response.dishes
         } catch {
             print("Failed to parse dishes JSON: \(error)")
+            print("Cleaned JSON: \(cleanJSON)")
             return []
         }
     }
@@ -99,7 +131,7 @@ class OCRProcessor: ObservableObject {
 
 class GeminiService {
     private let apiKey: String
-    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent"
+    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     
     init() {
         // Load API key from configuration
@@ -112,9 +144,10 @@ class GeminiService {
     }
     
     func analyzeImage(_ image: UIImage, prompt: String) async throws -> String? {
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            throw OCRError.invalidImage
-        }
+        // Get image data in original format or best available format
+        let (imageData, mimeType) = try getImageDataAndMimeType(image)
+        
+        print("Using image format: \(mimeType), size: \(imageData.count) bytes")
         
         let base64Image = imageData.base64EncodedString()
         
@@ -122,13 +155,13 @@ class GeminiService {
             "contents": [
                 [
                     "parts": [
-                        ["text": prompt],
                         [
                             "inline_data": [
-                                "mime_type": "image/jpeg",
+                                "mime_type": mimeType,
                                 "data": base64Image
                             ]
-                        ]
+                        ],
+                        ["text": prompt]
                     ]
                 ]
             ],
@@ -161,15 +194,44 @@ class GeminiService {
         }
         
         guard httpResponse.statusCode == 200 else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            print("API request failed with status: \(httpResponse.statusCode), body: \(errorBody)")
             throw OCRError.processingError("API request failed with status: \(httpResponse.statusCode)")
         }
         
-        return parseGeminiResponse(data)
+        return try parseGeminiResponse(data)
     }
     
-    private func parseGeminiResponse(_ data: Data) -> String? {
+    private func getImageDataAndMimeType(_ image: UIImage) throws -> (Data, String) {
+        // Try PNG first (lossless, good for text/images with sharp edges)
+        if let pngData = image.pngData() {
+            return (pngData, "image/png")
+        }
+        
+        // Fallback to JPEG if PNG fails
+        if let jpegData = image.jpegData(compressionQuality: 0.9) {
+            return (jpegData, "image/jpeg")
+        }
+        
+        // Try the extension method as last resort
+        if let extensionData = image.toJPEGData(compressionQuality: 0.9) {
+            return (extensionData, "image/jpeg")
+        }
+        
+        print("Failed to convert image to any supported format")
+        throw OCRError.invalidImage
+    }
+    
+    private func parseGeminiResponse(_ data: Data) throws -> String? {
         do {
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            
+            // Check for API errors first
+            if let error = json?["error"] as? [String: Any] {
+                let errorMessage = error["message"] as? String ?? "Unknown API error"
+                print("Gemini API error: \(errorMessage)")
+                throw OCRError.processingError("API Error: \(errorMessage)")
+            }
             
             guard let candidates = json?["candidates"] as? [[String: Any]],
                   let firstCandidate = candidates.first,
@@ -177,13 +239,17 @@ class GeminiService {
                   let parts = content["parts"] as? [[String: Any]],
                   let firstPart = parts.first,
                   let text = firstPart["text"] as? String else {
+                print("Failed to parse Gemini response structure")
+                print("Response JSON: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
                 return nil
             }
             
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            print("Parsed Gemini response: \(trimmedText)")
+            return trimmedText
         } catch {
             print("Failed to parse Gemini response: \(error)")
-            return nil
+            throw error
         }
     }
 }

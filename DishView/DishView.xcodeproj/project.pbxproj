@@ -24,10 +24,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0E8330CF2E15E65F00952947 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		0EC89AC72E159E8F008CBD84 /* DishView.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DishView.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EC89AD42E159E90008CBD84 /* DishViewTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DishViewTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EC89ADE2E159E90008CBD84 /* DishViewUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DishViewUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXBuildFile section */
+		0E8330D12E15E6A000952947 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0E8330CF2E15E65F00952947 /* Config.plist */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0EC89AC92E159E8F008CBD84 /* DishView */ = {
@@ -79,6 +84,7 @@
 				0EC89AD72E159E90008CBD84 /* DishViewTests */,
 				0EC89AE12E159E90008CBD84 /* DishViewUITests */,
 				0EC89AC82E159E8F008CBD84 /* Products */,
+				0E8330CF2E15E65F00952947 /* Config.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0E8330D12E15E6A000952947 /* Config.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
