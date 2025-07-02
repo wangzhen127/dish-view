@@ -1,0 +1,168 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Product Requirements Document (PRD) for Dish View iOS App
+
+## Overview
+
+**App Name:** Dish View
+**Platform:** iOS (Swift)
+**Goal:** Help customers visualize dishes listed on a restaurant's menu by extracting dish names from photos of text menus and showing representative dish images.
+
+---
+
+## Features
+
+### 1. Menu Image Input
+
+* **Description:** Allow users to take photos or upload existing pictures of a restaurant menu.
+* **Requirements:**
+
+  * Support taking multiple photos via the camera
+  * Support uploading multiple photos from the device gallery
+  * Provide a preview and delete functionality for uploaded images
+
+### 2. Restaurant Name Extraction
+
+* **Description:** Automatically extract the restaurant name from uploaded menu photos.
+* **Requirements:**
+
+  * Use OCR (Optical Character Recognition) to scan all images
+  * Use heuristics or NLP to identify the most likely restaurant name
+  * If available, use device location to narrow down the list of possible restaurants
+  * Allow manual correction or entry by user if detection is incorrect
+
+### 3. Dish List Extraction
+
+* **Description:** Parse dish names from menu images.
+* **Requirements:**
+
+  * Use OCR + NLP to detect text blocks that represent dish names
+  * Group dishes by sections (e.g., Appetizers, Entrees, Desserts) if possible
+  * Provide UI for user to edit or confirm extracted dish names
+
+### 4. Dish Image Retrieval
+
+* **Description:** Search for and retrieve representative images for each dish.
+* **Requirements:**
+
+  * Use Google Custom Search API or similar to find dish images
+  * Combine restaurant name, dish name, and optionally location to improve search accuracy
+  * For each dish, return one best representative image
+  * Cache results locally
+
+### 5. Dish Image Display
+
+* **Description:** Show matched dish images clearly to the user.
+* **Requirements:**
+
+  * Grid or list view of dish images with clearly labeled dish names
+  * Show placeholder or message if no image found
+  * Provide option to edit or retry search for missing images
+
+### 6. Restart Workflow
+
+* **Description:** Allow user to restart the full process
+* **Requirements:**
+
+  * Clear stored images, extracted data, and search results
+  * Return to initial photo upload screen
+
+### 7. User Interface
+
+* **Description:** Clean, modern, user-friendly UI design
+* **Requirements:**
+
+  * Use iOS native design patterns (SwiftUI preferred)
+  * Responsive layout for different screen sizes
+  * Minimalist theme with high readability and attractive image presentation
+
+---
+
+## Architecture & File Structure
+
+```plaintext
+DishView/
+├── App/
+│   ├── DishViewApp.swift          # App entry point
+│   └── AppDelegate.swift
+│
+├── Features/
+│   ├── MenuInput/
+│   │   ├── MenuCaptureView.swift
+│   │   ├── MenuUploadView.swift
+│   │   └── MenuImageModel.swift
+│   │
+│   ├── RestaurantInfo/
+│   │   ├── RestaurantExtractor.swift
+│   │   ├── LocationHelper.swift
+│   │   └── RestaurantModel.swift
+│   │
+│   ├── DishExtraction/
+│   │   ├── OCRProcessor.swift
+│   │   ├── DishListParser.swift
+│   │   └── DishModel.swift
+│   │
+│   ├── DishImageSearch/
+│   │   ├── ImageSearchService.swift
+│   │   ├── DishImageFetcher.swift
+│   │   └── ImageCache.swift
+│   │
+│   └── DishDisplay/
+│       ├── DishGridView.swift
+│       ├── DishDetailView.swift
+│       └── DishCardView.swift
+│
+├── Shared/
+│   ├── Views/
+│   │   ├── PrimaryButton.swift
+│   │   ├── LoadingIndicator.swift
+│   │   └── EmptyStateView.swift
+│   ├── Models/
+│   │   └── AppState.swift
+│   └── Extensions/
+│       └── UIImage+Resize.swift
+│
+├── Resources/
+│   ├── Assets.xcassets
+│   ├── Localizable.strings
+│   └── Info.plist
+│
+└── Tests/
+    ├── UnitTests/
+    │   ├── OCRTests.swift
+    │   └── ImageSearchTests.swift
+    └── UITests/
+        └── AppFlowTests.swift
+```
+
+---
+
+## Dependencies & APIs
+
+* Google Custom Search API (for dish images)
+* Core ML / Vision (for OCR)
+* Core Location (for restaurant location)
+
+---
+
+## Future Considerations
+
+* Allow user to upload or take photo of a physical dish to match it visually
+* Add support for dish descriptions and reviews
+* Integration with online menu platforms (e.g., Yelp, Google Maps, OpenTable)
+
+---
+
+## Milestones
+
+1. Image capture and upload
+2. OCR and text parsing
+3. Restaurant identification and confirmation
+4. Dish image search and matching
+5. UI display of results
+6. App polishing and restart workflow
+7. Beta release
+8. Public release
