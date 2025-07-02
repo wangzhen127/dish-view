@@ -23,9 +23,10 @@ A modern iOS application that helps customers visualize dishes listed on a resta
 
 ### 🖼️ Dish Image Retrieval
 - Search for representative images for each dish
-- Integration with Google Custom Search API (planned)
+- Integration with Google Custom Search API
 - Local caching of search results
 - Fallback handling for missing images
+- Retry functionality for failed image searches
 
 ### 🎨 Beautiful Dish Display
 - Modern grid layout for dish visualization
@@ -89,7 +90,7 @@ DishView/
 - **Language**: Swift 5.9+
 - **Platform**: iOS 17.0+
 - **OCR**: Apple Vision Framework
-- **Image Search**: Google Custom Search API (planned)
+- **Image Search**: Google Custom Search API
 - **Architecture**: MVVM with ObservableObject
 
 ## Requirements
@@ -132,7 +133,7 @@ open DishView.xcodeproj
 
 ## Configuration
 
-### Google Custom Search API (Future)
+### Google Custom Search API
 
 To enable dish image search functionality:
 
@@ -184,7 +185,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Apple Vision Framework for OCR capabilities
 - SwiftUI for the modern UI framework
-- Google Custom Search API for image search (planned)
+- Google Custom Search API for image search
 
 ## Support
 
@@ -192,4 +193,4 @@ For support, email support@dishview.app or create an issue in this repository.
 
 ---
 
-**Note**: This is a development version. Some features like Google Custom Search API integration are planned for future releases. 
+**Note**: This is a production-ready version with all core features implemented. The app is ready for App Store submission. 

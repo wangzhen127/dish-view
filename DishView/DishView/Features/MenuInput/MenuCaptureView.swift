@@ -105,9 +105,9 @@ struct MenuCaptureView: View {
             }
             .navigationTitle("Menu Capture")
             .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: selectedItem) { item in
+            .onChange(of: selectedItem) { oldValue, newValue in
                 Task {
-                    if let data = try? await item?.loadTransferable(type: Data.self),
+                    if let data = try? await newValue?.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
                         await MainActor.run {
                             appState.addMenuImage(image)

@@ -21,25 +21,24 @@ class OCRProcessor: ObservableObject {
     func extractRestaurantName(from images: [UIImage]) async throws -> String? {
         let texts = try await extractText(from: images)
         
-        // TODO: Implement restaurant name extraction logic
-        // This could use NLP or heuristics to identify restaurant names
-        // For now, return a placeholder
-        return "Sample Restaurant"
+        // Combine all extracted texts
+        let combinedText = texts.joined(separator: "\n")
+        
+        // Try multiple strategies to extract restaurant name
+        if let restaurantName = extractRestaurantNameFromText(combinedText) {
+            return restaurantName
+        }
+        
+        // If no restaurant name found, return nil
+        return nil
     }
     
     func extractDishes(from images: [UIImage]) async throws -> [Dish] {
         let texts = try await extractText(from: images)
         
-        // TODO: Implement dish extraction logic
-        // This would parse the text to identify dish names, prices, and sections
-        // For now, return sample dishes
-        return [
-            Dish(name: "Margherita Pizza", section: "Main Course", price: "$18"),
-            Dish(name: "Caesar Salad", section: "Appetizers", price: "$12"),
-            Dish(name: "Tiramisu", section: "Desserts", price: "$8"),
-            Dish(name: "Spaghetti Carbonara", section: "Main Course", price: "$16"),
-            Dish(name: "Bruschetta", section: "Appetizers", price: "$10")
-        ]
+        // Combine all texts and parse for dishes
+        let combinedText = texts.joined(separator: "\n")
+        return parseMenuText(combinedText)
     }
     
     private func performOCR(on image: UIImage) async throws -> String {
@@ -88,15 +87,184 @@ enum OCRError: Error {
     case processingError(String)
 }
 
+// MARK: - Restaurant Name Extraction
+extension OCRProcessor {
+    private func extractRestaurantNameFromText(_ text: String) -> String? {
+        let lines = text.components(separatedBy: .newlines)
+        
+        // Strategy 1: Look for restaurant name in the first few lines (header area)
+        for i in 0..<min(5, lines.count) {
+            let line = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
+            if let restaurantName = extractRestaurantNameFromLine(line) {
+                return restaurantName
+            }
+        }
+        
+        // Strategy 2: Look for common restaurant name patterns throughout the text
+        if let restaurantName = findRestaurantNamePatterns(in: text) {
+            return restaurantName
+        }
+        
+        // Strategy 3: Look for text that appears to be a restaurant name based on formatting
+        if let restaurantName = findFormattedRestaurantName(in: lines) {
+            return restaurantName
+        }
+        
+        return nil
+    }
+    
+    private func extractRestaurantNameFromLine(_ line: String) -> String? {
+        // Skip empty lines and common menu words
+        if line.isEmpty || isCommonMenuWord(line) {
+            return nil
+        }
+        
+        // Look for lines that are likely restaurant names
+        let cleanedLine = cleanRestaurantName(line)
+        
+        // Check if the line looks like a restaurant name
+        if isValidRestaurantName(cleanedLine) {
+            return cleanedLine
+        }
+        
+        return nil
+    }
+    
+    private func findRestaurantNamePatterns(in text: String) -> String? {
+        // Common restaurant name patterns
+        let patterns = [
+            #"^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:Restaurant|Cafe|Bistro|Grill|Pizzeria|Diner|Bar|Kitchen|House|Place|Corner|Spot))"#,
+            #"^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:&|and)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"#,
+            #"^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"#
+        ]
+        
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) {
+                let range = NSRange(text.startIndex..., in: text)
+                if let match = regex.firstMatch(in: text, range: range) {
+                    let matchRange = Range(match.range(at: 1), in: text)!
+                    let restaurantName = String(text[matchRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if isValidRestaurantName(restaurantName) {
+                        return restaurantName
+                    }
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    private func findFormattedRestaurantName(in lines: [String]) -> String? {
+        // Look for lines that are centered, bold, or have special formatting
+        for line in lines.prefix(10) {
+            let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Skip if too short or too long
+            if trimmedLine.count < 3 || trimmedLine.count > 50 {
+                continue
+            }
+            
+            // Check if line has characteristics of a restaurant name
+            if isLikelyRestaurantName(trimmedLine) {
+                return cleanRestaurantName(trimmedLine)
+            }
+        }
+        
+        return nil
+    }
+    
+    private func isCommonMenuWord(_ text: String) -> Bool {
+        let commonWords = [
+            "menu", "appetizers", "starters", "main course", "entrees", "desserts",
+            "drinks", "beverages", "wine", "beer", "cocktails", "specials",
+            "daily", "chef", "house", "signature", "popular", "favorites"
+        ]
+        
+        let lowercasedText = text.lowercased()
+        return commonWords.contains { lowercasedText.contains($0) }
+    }
+    
+    private func isValidRestaurantName(_ name: String) -> Bool {
+        // Must be at least 3 characters
+        if name.count < 3 {
+            return false
+        }
+        
+        // Must not be too long
+        if name.count > 50 {
+            return false
+        }
+        
+        // Must contain letters
+        if !name.contains(where: { $0.isLetter }) {
+            return false
+        }
+        
+        // Must not be all uppercase (likely a section header)
+        if name == name.uppercased() && name.count > 5 {
+            return false
+        }
+        
+        // Must not contain only numbers
+        if name.rangeOfCharacter(from: CharacterSet.letters) == nil {
+            return false
+        }
+        
+        return true
+    }
+    
+    private func isLikelyRestaurantName(_ text: String) -> Bool {
+        // Check for characteristics of restaurant names
+        let words = text.components(separatedBy: .whitespaces)
+        
+        // Should have 1-4 words typically
+        if words.count < 1 || words.count > 4 {
+            return false
+        }
+        
+        // First word should start with capital letter
+        if let firstWord = words.first, !firstWord.isEmpty {
+            if !firstWord.first!.isUppercase {
+                return false
+            }
+        }
+        
+        // Should not contain common menu section words
+        if isCommonMenuWord(text) {
+            return false
+        }
+        
+        // Should not contain price patterns
+        if text.contains("$") || text.range(of: #"\d+"#, options: .regularExpression) != nil {
+            return false
+        }
+        
+        return true
+    }
+    
+    private func cleanRestaurantName(_ name: String) -> String {
+        var cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove common suffixes that might be OCR artifacts
+        let suffixesToRemove = ["restaurant", "cafe", "bistro", "grill", "pizzeria", "diner", "bar", "kitchen", "house", "place", "corner", "spot"]
+        
+        for suffix in suffixesToRemove {
+            if cleaned.lowercased().hasSuffix(suffix) {
+                cleaned = String(cleaned.dropLast(suffix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                break
+            }
+        }
+        
+        // Remove extra whitespace
+        cleaned = cleaned.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        
+        return cleaned
+    }
+}
+
 // MARK: - Text Processing Extensions
 extension OCRProcessor {
     func parseMenuText(_ text: String) -> [Dish] {
-        // TODO: Implement sophisticated menu parsing
-        // This would:
-        // 1. Identify section headers (Appetizers, Main Course, etc.)
-        // 2. Extract dish names and prices
-        // 3. Handle different menu formats
-        
         let lines = text.components(separatedBy: .newlines)
         var dishes: [Dish] = []
         var currentSection: String?
@@ -108,7 +276,7 @@ extension OCRProcessor {
             
             // Check if line is a section header
             if isSectionHeader(trimmedLine) {
-                currentSection = trimmedLine
+                currentSection = cleanSectionName(trimmedLine)
                 continue
             }
             
@@ -122,37 +290,155 @@ extension OCRProcessor {
     }
     
     private func isSectionHeader(_ line: String) -> Bool {
-        let sectionKeywords = ["appetizers", "starters", "main course", "entrees", "desserts", "drinks", "beverages"]
+        let sectionKeywords = [
+            "appetizers", "starters", "first course", "small plates",
+            "main course", "entrees", "main dishes", "mains",
+            "desserts", "sweets", "pastries", "ice cream",
+            "drinks", "beverages", "cocktails", "wine", "beer",
+            "sides", "side dishes", "vegetables", "salads",
+            "soups", "sandwiches", "burgers", "pizza", "pasta"
+        ]
+        
         let lowercasedLine = line.lowercased()
         
-        return sectionKeywords.contains { lowercasedLine.contains($0) }
-    }
-    
-    private func parseDishLine(_ line: String, section: String?) -> Dish? {
-        // TODO: Implement more sophisticated dish parsing
-        // This is a basic implementation that looks for price patterns
-        
-        let pricePattern = #"\$(\d+(?:\.\d{2})?)"#
-        let priceRegex = try? NSRegularExpression(pattern: pricePattern)
-        
-        if let match = priceRegex?.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) {
-            let priceRange = Range(match.range(at: 1), in: line)!
-            let price = String(line[priceRange])
-            
-            // Remove price from dish name
-            let dishName = line.replacingOccurrences(of: pricePattern, with: "", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            if !dishName.isEmpty {
-                return Dish(name: dishName, section: section, price: "$\(price)")
+        // Check for exact matches or contains
+        for keyword in sectionKeywords {
+            if lowercasedLine == keyword || lowercasedLine.contains(keyword) {
+                return true
             }
         }
         
-        // If no price found, treat the whole line as dish name
-        if !line.isEmpty {
-            return Dish(name: line, section: section)
+        // Check for all caps (common for section headers)
+        if line == line.uppercased() && line.count > 3 && line.count < 20 {
+            return true
+        }
+        
+        return false
+    }
+    
+    private func cleanSectionName(_ section: String) -> String {
+        var cleaned = section.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Convert to title case
+        cleaned = cleaned.capitalized
+        
+        // Handle common variations
+        let sectionMappings = [
+            "appetizers": "Appetizers",
+            "starters": "Appetizers",
+            "first course": "Appetizers",
+            "small plates": "Appetizers",
+            "main course": "Main Course",
+            "entrees": "Main Course",
+            "main dishes": "Main Course",
+            "mains": "Main Course",
+            "desserts": "Desserts",
+            "sweets": "Desserts",
+            "pastries": "Desserts",
+            "drinks": "Beverages",
+            "beverages": "Beverages",
+            "cocktails": "Beverages",
+            "wine": "Beverages",
+            "beer": "Beverages"
+        ]
+        
+        return sectionMappings[cleaned.lowercased()] ?? cleaned
+    }
+    
+    private func parseDishLine(_ line: String, section: String?) -> Dish? {
+        // Skip if line is too short or likely a header
+        if line.count < 3 || isSectionHeader(line) {
+            return nil
+        }
+        
+        // Try to extract price first
+        let pricePatterns = [
+            #"\$(\d+(?:\.\d{2})?)"#,           // $12.99
+            #"(\d+(?:\.\d{2})?)\s*\$"#,        // 12.99$
+            #"(\d+(?:\.\d{2})?)\s*(?:dollars|USD)"#, // 12.99 dollars
+            #"(\d+(?:\.\d{2})?)\s*€"#,         // 12.99€
+            #"€\s*(\d+(?:\.\d{2})?)"#,         // €12.99
+            #"(\d+(?:\.\d{2})?)\s*£"#,         // 12.99£
+            #"£\s*(\d+(?:\.\d{2})?)"#          // £12.99
+        ]
+        
+        var extractedPrice: String?
+        var dishName = line
+        
+        for pattern in pricePatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                let range = NSRange(line.startIndex..., in: line)
+                if let match = regex.firstMatch(in: line, range: range) {
+                    let priceRange = Range(match.range(at: 1), in: line)!
+                    let price = String(line[priceRange])
+                    
+                    // Format price consistently
+                    if let priceDouble = Double(price) {
+                        extractedPrice = String(format: "$%.2f", priceDouble)
+                    }
+                    
+                    // Remove price from dish name
+                    dishName = regex.stringByReplacingMatches(in: line, range: range, withTemplate: "")
+                    break
+                }
+            }
+        }
+        
+        // Clean up dish name
+        dishName = cleanDishName(dishName)
+        
+        // Validate dish name
+        if isValidDishName(dishName) {
+            return Dish(name: dishName, section: section, price: extractedPrice)
         }
         
         return nil
+    }
+    
+    private func cleanDishName(_ name: String) -> String {
+        var cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove common menu artifacts
+        let artifacts = ["*", "•", "→", "→", "—", "-", "|", "/", "\\"]
+        for artifact in artifacts {
+            cleaned = cleaned.replacingOccurrences(of: artifact, with: " ")
+        }
+        
+        // Remove extra whitespace
+        cleaned = cleaned.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        
+        // Capitalize first letter of each word
+        cleaned = cleaned.capitalized
+        
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private func isValidDishName(_ name: String) -> Bool {
+        // Must be at least 2 characters
+        if name.count < 2 {
+            return false
+        }
+        
+        // Must not be too long
+        if name.count > 100 {
+            return false
+        }
+        
+        // Must contain letters
+        if !name.contains(where: { $0.isLetter }) {
+            return false
+        }
+        
+        // Must not be all uppercase (likely a section header)
+        if name == name.uppercased() && name.count > 10 {
+            return false
+        }
+        
+        // Must not contain only numbers or special characters
+        if name.rangeOfCharacter(from: CharacterSet.letters) == nil {
+            return false
+        }
+        
+        return true
     }
 } 

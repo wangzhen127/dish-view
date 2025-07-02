@@ -77,19 +77,44 @@ struct DishCardView: View {
 
 struct DishDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var isRetryingImage = false
+    @State private var showingShareSheet = false
+    @State private var updatedDish: Dish
+    
     let dish: Dish
+    let onRetryImage: ((Dish) -> Void)?
+    
+    init(dish: Dish, onRetryImage: ((Dish) -> Void)? = nil) {
+        self.dish = dish
+        self.onRetryImage = onRetryImage
+        self._updatedDish = State(initialValue: dish)
+    }
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
                     // Dish Image
-                    if let image = dish.image {
+                    if let image = updatedDish.image {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(maxHeight: 300)
                             .cornerRadius(16)
+                    } else if updatedDish.isImageLoading || isRetryingImage {
+                        VStack {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .scaleEffect(1.2)
+                            Text(isRetryingImage ? "Retrying..." : "Loading...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 8)
+                        }
+                        .frame(height: 300)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(16)
                     } else {
                         Image(systemName: "fork.knife")
                             .font(.system(size: 100))
@@ -103,26 +128,26 @@ struct DishDetailView: View {
                     // Dish Information
                     VStack(spacing: 16) {
                         VStack(spacing: 8) {
-                            Text(dish.name)
+                            Text(updatedDish.name)
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .multilineTextAlignment(.center)
                             
-                            if let section = dish.section {
+                            if let section = updatedDish.section {
                                 Text(section)
                                     .font(.headline)
                                     .foregroundColor(.secondary)
                             }
                         }
                         
-                        if let price = dish.price {
+                        if let price = updatedDish.price {
                             Text(price)
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.blue)
                         }
                         
-                        if let description = dish.description {
+                        if let description = updatedDish.description {
                             Text(description)
                                 .font(.body)
                                 .foregroundColor(.secondary)
@@ -133,7 +158,7 @@ struct DishDetailView: View {
                         // Action Buttons
                         VStack(spacing: 12) {
                             Button(action: {
-                                // TODO: Implement retry image search
+                                retryImageSearch()
                             }) {
                                 HStack {
                                     Image(systemName: "arrow.clockwise")
@@ -147,9 +172,10 @@ struct DishDetailView: View {
                                 )
                                 .foregroundColor(.blue)
                             }
+                            .disabled(isRetryingImage)
                             
                             Button(action: {
-                                // TODO: Implement share functionality
+                                shareDish()
                             }) {
                                 HStack {
                                     Image(systemName: "square.and.arrow.up")
@@ -179,8 +205,114 @@ struct DishDetailView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingShareSheet) {
+                ShareSheet(activityItems: createShareItems())
+            }
         }
     }
+    
+    // MARK: - Private Methods
+    
+    private func retryImageSearch() {
+        guard !isRetryingImage else { return }
+        
+        isRetryingImage = true
+        
+        Task {
+            do {
+                // Create a new dish instance for retry
+                var retryDish = updatedDish
+                retryDish.isImageLoading = true
+                retryDish.imageLoadError = false
+                retryDish.image = nil
+                
+                // Update the UI immediately
+                await MainActor.run {
+                    updatedDish = retryDish
+                }
+                
+                // Attempt to search for the image
+                if let image = try await ImageSearchService.shared.searchDishImage(
+                    dishName: retryDish.name,
+                    restaurantName: nil // Could be passed from parent view
+                ) {
+                    // Success - update with new image
+                    await MainActor.run {
+                        updatedDish.image = image
+                        updatedDish.imageLoadError = false
+                        updatedDish.isImageLoading = false
+                        isRetryingImage = false
+                        
+                        // Notify parent if callback provided
+                        onRetryImage?(updatedDish)
+                    }
+                } else {
+                    // No image found
+                    await MainActor.run {
+                        updatedDish.imageLoadError = true
+                        updatedDish.isImageLoading = false
+                        isRetryingImage = false
+                    }
+                }
+            } catch {
+                // Error occurred
+                await MainActor.run {
+                    updatedDish.imageLoadError = true
+                    updatedDish.isImageLoading = false
+                    isRetryingImage = false
+                }
+            }
+        }
+    }
+    
+    private func shareDish() {
+        showingShareSheet = true
+    }
+    
+    private func createShareItems() -> [Any] {
+        var shareItems: [Any] = []
+        
+        // Add dish name and details
+        var dishText = "🍽️ \(updatedDish.name)"
+        
+        if let section = updatedDish.section {
+            dishText += "\n📋 \(section)"
+        }
+        
+        if let price = updatedDish.price {
+            dishText += "\n💰 \(price)"
+        }
+        
+        if let description = updatedDish.description {
+            dishText += "\n📝 \(description)"
+        }
+        
+        dishText += "\n\nShared from Dish View app"
+        
+        shareItems.append(dishText)
+        
+        // Add image if available
+        if let image = updatedDish.image {
+            shareItems.append(image)
+        }
+        
+        return shareItems
+    }
+}
+
+// MARK: - Share Sheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {
