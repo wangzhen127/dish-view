@@ -4,6 +4,7 @@ struct RestaurantConfirmationView: View {
     @ObservedObject var appState: AppState
     @State private var restaurantName: String = ""
     @State private var isExtracting: Bool = true
+    @State private var extractionError: String?
     
     var body: some View {
         NavigationView {
@@ -29,6 +30,31 @@ struct RestaurantConfirmationView: View {
                     Spacer()
                     
                     LoadingIndicator("Extracting restaurant name...")
+                    
+                    Spacer()
+                } else if let error = extractionError {
+                    Spacer()
+                    
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.orange)
+                        
+                        Text("Extraction Failed")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text(error)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        
+                        Button("Try Again") {
+                            extractRestaurantName()
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    .padding()
                     
                     Spacer()
                 } else {
@@ -83,9 +109,37 @@ struct RestaurantConfirmationView: View {
             .navigationTitle("Restaurant")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                // Simulate restaurant name extraction
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    restaurantName = "Sample Restaurant"
+                extractRestaurantName()
+            }
+        }
+    }
+    
+    private func extractRestaurantName() {
+        guard !appState.menuImages.isEmpty else {
+            extractionError = "No menu images available for extraction."
+            isExtracting = false
+            return
+        }
+        
+        isExtracting = true
+        extractionError = nil
+        
+        Task {
+            do {
+                let extractedName = try await OCRProcessor.shared.extractRestaurantName(from: appState.menuImages)
+                
+                await MainActor.run {
+                    if let name = extractedName, !name.isEmpty {
+                        restaurantName = name
+                    } else {
+                        restaurantName = ""
+                        extractionError = "Could not extract restaurant name from the menu images. Please enter it manually."
+                    }
+                    isExtracting = false
+                }
+            } catch {
+                await MainActor.run {
+                    extractionError = "Failed to extract restaurant name: \(error.localizedDescription)"
                     isExtracting = false
                 }
             }

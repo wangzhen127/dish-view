@@ -317,9 +317,8 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 #Preview {
     VStack(spacing: 20) {
-        DishCardView(dish: Dish(name: "Margherita Pizza", section: "Main Course", price: "$18"))
-        
-        DishCardView(dish: Dish(name: "Caesar Salad", section: "Appetizers", price: "$12"))
+        // For preview, use a generic/empty Dish. Real data comes from extraction.
+        DishCardView(dish: Dish(name: "", section: nil, price: nil))
     }
     .padding()
 } 

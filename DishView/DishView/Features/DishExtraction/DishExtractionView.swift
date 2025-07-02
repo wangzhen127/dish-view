@@ -2,10 +2,11 @@ import SwiftUI
 
 struct DishExtractionView: View {
     @ObservedObject var appState: AppState
-    @State private var isExtracting: Bool = true
     @State private var extractedDishes: [Dish] = []
-    @State private var editingDish: Dish?
+    @State private var isExtracting: Bool = true
+    @State private var extractionError: String?
     @State private var showingEditSheet = false
+    @State private var editingDish: Dish?
     
     var body: some View {
         NavigationView {
@@ -31,6 +32,31 @@ struct DishExtractionView: View {
                     Spacer()
                     
                     LoadingIndicator("Extracting dishes from menu...")
+                    
+                    Spacer()
+                } else if let error = extractionError {
+                    Spacer()
+                    
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.orange)
+                        
+                        Text("Extraction Failed")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text(error)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        
+                        Button("Try Again") {
+                            extractDishes()
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    .padding()
                     
                     Spacer()
                 } else {
@@ -86,17 +112,7 @@ struct DishExtractionView: View {
             .navigationTitle("Dish Extraction")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                // Simulate dish extraction
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    extractedDishes = [
-                        Dish(name: "Margherita Pizza", section: "Main Course", price: "$18"),
-                        Dish(name: "Caesar Salad", section: "Appetizers", price: "$12"),
-                        Dish(name: "Tiramisu", section: "Desserts", price: "$8"),
-                        Dish(name: "Spaghetti Carbonara", section: "Main Course", price: "$16"),
-                        Dish(name: "Bruschetta", section: "Appetizers", price: "$10")
-                    ]
-                    isExtracting = false
-                }
+                extractDishes()
             }
             .sheet(isPresented: $showingEditSheet) {
                 if let dish = editingDish {
@@ -105,6 +121,33 @@ struct DishExtractionView: View {
                             extractedDishes[index] = updatedDish
                         }
                     }
+                }
+            }
+        }
+    }
+    
+    private func extractDishes() {
+        guard !appState.menuImages.isEmpty else {
+            extractionError = "No menu images available for extraction."
+            isExtracting = false
+            return
+        }
+        
+        isExtracting = true
+        extractionError = nil
+        
+        Task {
+            do {
+                let dishes = try await OCRProcessor.shared.extractDishes(from: appState.menuImages)
+                
+                await MainActor.run {
+                    extractedDishes = dishes
+                    isExtracting = false
+                }
+            } catch {
+                await MainActor.run {
+                    extractionError = "Failed to extract dishes: \(error.localizedDescription)"
+                    isExtracting = false
                 }
             }
         }

@@ -89,7 +89,7 @@ DishView/
 - **Framework**: SwiftUI
 - **Language**: Swift 5.9+
 - **Platform**: iOS 17.0+
-- **OCR**: Apple Vision Framework
+- **OCR**: Google Gemini API (AI-powered text extraction)
 - **Image Search**: Google Custom Search API
 - **Architecture**: MVVM with ObservableObject
 
@@ -133,6 +133,20 @@ open DishView.xcodeproj
 
 ## Configuration
 
+### Google Gemini API
+
+To enable AI-powered text extraction functionality:
+
+1. Create a Google Cloud Project
+2. Enable the Gemini API
+3. Get your API key from the Google AI Studio
+4. Add your API key to `Config.plist`:
+
+```xml
+<key>GEMINI_API_KEY</key>
+<string>YOUR_GEMINI_API_KEY_HERE</string>
+```
+
 ### Google Custom Search API
 
 To enable dish image search functionality:
@@ -140,12 +154,13 @@ To enable dish image search functionality:
 1. Create a Google Cloud Project
 2. Enable the Custom Search API
 3. Create a Custom Search Engine
-4. Add your API credentials to the app
+4. Add your API credentials to `Config.plist`:
 
-```swift
-// In ImageSearchService.swift
-let apiKey = "YOUR_API_KEY"
-let searchEngineId = "YOUR_SEARCH_ENGINE_ID"
+```xml
+<key>GOOGLE_CUSTOM_SEARCH_API_KEY</key>
+<string>YOUR_API_KEY</string>
+<key>GOOGLE_CUSTOM_SEARCH_ENGINE_ID</key>
+<string>YOUR_SEARCH_ENGINE_ID</string>
 ```
 
 ## Development
@@ -183,7 +198,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Apple Vision Framework for OCR capabilities
+- Google Gemini API for AI-powered text extraction
 - SwiftUI for the modern UI framework
 - Google Custom Search API for image search
 

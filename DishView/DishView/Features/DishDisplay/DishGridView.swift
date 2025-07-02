@@ -147,14 +147,6 @@ struct FilterChip: View {
 
 #Preview {
     let appState = AppState()
-    appState.setRestaurantName("Sample Restaurant")
-    appState.dishes = [
-        Dish(name: "Margherita Pizza", section: "Main Course", price: "$18"),
-        Dish(name: "Caesar Salad", section: "Appetizers", price: "$12"),
-        Dish(name: "Tiramisu", section: "Desserts", price: "$8"),
-        Dish(name: "Spaghetti Carbonara", section: "Main Course", price: "$16"),
-        Dish(name: "Bruschetta", section: "Appetizers", price: "$10")
-    ]
-    
+    // For preview, use an empty AppState. Real data comes from extraction.
     return DishGridView(appState: appState)
 } 
