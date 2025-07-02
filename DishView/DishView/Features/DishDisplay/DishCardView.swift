@@ -78,7 +78,6 @@ struct DishCardView: View {
 struct DishDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isRetryingImage = false
-    @State private var showingShareSheet = false
     @State private var updatedDish: Dish
     
     let dish: Dish
@@ -155,41 +154,23 @@ struct DishDetailView: View {
                                 .padding(.horizontal)
                         }
                         
-                        // Action Buttons
-                        VStack(spacing: 12) {
-                            Button(action: {
-                                retryImageSearch()
-                            }) {
-                                HStack {
-                                    Image(systemName: "arrow.clockwise")
-                                    Text("Retry Image Search")
-                                }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 44)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.blue, lineWidth: 2)
-                                )
-                                .foregroundColor(.blue)
+                        // Action Button
+                        Button(action: {
+                            retryImageSearch()
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Retry Image Search")
                             }
-                            .disabled(isRetryingImage)
-                            
-                            Button(action: {
-                                shareDish()
-                            }) {
-                                HStack {
-                                    Image(systemName: "square.and.arrow.up")
-                                    Text("Share Dish")
-                                }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 44)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.green, lineWidth: 2)
-                                )
-                                .foregroundColor(.green)
-                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.blue, lineWidth: 2)
+                            )
+                            .foregroundColor(.blue)
                         }
+                        .disabled(isRetryingImage)
                         .padding(.horizontal)
                     }
                     .padding()
@@ -205,9 +186,7 @@ struct DishDetailView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingShareSheet) {
-                ShareSheet(activityItems: createShareItems())
-            }
+
         }
     }
     
@@ -265,55 +244,10 @@ struct DishDetailView: View {
         }
     }
     
-    private func shareDish() {
-        showingShareSheet = true
-    }
-    
-    private func createShareItems() -> [Any] {
-        var shareItems: [Any] = []
-        
-        // Add dish name and details
-        var dishText = "🍽️ \(updatedDish.name)"
-        
-        if let section = updatedDish.section {
-            dishText += "\n📋 \(section)"
-        }
-        
-        if let price = updatedDish.price {
-            dishText += "\n💰 \(price)"
-        }
-        
-        if let description = updatedDish.description {
-            dishText += "\n📝 \(description)"
-        }
-        
-        dishText += "\n\nShared from Dish View app"
-        
-        shareItems.append(dishText)
-        
-        // Add image if available
-        if let image = updatedDish.image {
-            shareItems.append(image)
-        }
-        
-        return shareItems
-    }
+
 }
 
-// MARK: - Share Sheet
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(
-            activityItems: activityItems,
-            applicationActivities: nil
-        )
-        return controller
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
+
 
 #Preview {
     VStack(spacing: 20) {

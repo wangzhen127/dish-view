@@ -144,12 +144,31 @@ struct DishExtractionView: View {
                     extractedDishes = dishes
                     isExtracting = false
                 }
+                
+                // Search for images for all extracted dishes
+                await searchImagesForDishes(dishes)
+                
             } catch {
                 await MainActor.run {
                     extractionError = "Failed to extract dishes: \(error.localizedDescription)"
                     isExtracting = false
                 }
             }
+        }
+    }
+    
+    private func searchImagesForDishes(_ dishes: [Dish]) async {
+        print("Starting image search for \(dishes.count) dishes")
+        print("🏪 Restaurant name from app state: '\(appState.restaurantName.isEmpty ? "empty" : appState.restaurantName)'")
+        
+        let updatedDishes = await ImageSearchService.shared.searchDishImages(
+            for: dishes,
+            restaurantName: appState.restaurantName
+        )
+        
+        await MainActor.run {
+            extractedDishes = updatedDishes
+            print("Image search completed. \(updatedDishes.filter { $0.image != nil }.count) dishes have images")
         }
     }
 }

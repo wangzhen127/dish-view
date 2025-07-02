@@ -38,24 +38,36 @@ class ImageSearchService: ObservableObject {
     }
     
     func searchDishImages(for dishes: [Dish], restaurantName: String? = nil) async -> [Dish] {
+        print("🍽️ Starting image search for \(dishes.count) dishes")
+        if let restaurantName = restaurantName {
+            print("🏪 Restaurant: \(restaurantName)")
+        }
+        
         var updatedDishes = dishes
         
         for (index, dish) in dishes.enumerated() {
+            print("🔍 Searching for dish \(index + 1)/\(dishes.count): '\(dish.name)'")
             updatedDishes[index].isImageLoading = true
             
             do {
                 if let image = try await searchDishImage(dishName: dish.name, restaurantName: restaurantName) {
+                    print("✅ Found image for '\(dish.name)'")
                     updatedDishes[index].image = image
                     updatedDishes[index].imageLoadError = false
                 } else {
+                    print("❌ No image found for '\(dish.name)'")
                     updatedDishes[index].imageLoadError = true
                 }
             } catch {
+                print("💥 Error searching for '\(dish.name)': \(error)")
                 updatedDishes[index].imageLoadError = true
             }
             
             updatedDishes[index].isImageLoading = false
         }
+        
+        let successCount = updatedDishes.filter { $0.image != nil }.count
+        print("🎯 Image search completed: \(successCount)/\(dishes.count) dishes have images")
         
         return updatedDishes
     }
@@ -63,16 +75,24 @@ class ImageSearchService: ObservableObject {
     // MARK: - Private Methods
     
     private func buildSearchQuery(dishName: String, restaurantName: String?) -> String {
-        var query = dishName
+        var query = ""
         
-        // Add restaurant name if available to improve search accuracy
+        print("🔍 Building search query for dish: '\(dishName)'")
+        print("🏪 Restaurant name parameter: '\(restaurantName ?? "nil")'")
+        
+        // Explicitly call out restaurant and dish in the query
         if let restaurantName = restaurantName, !restaurantName.isEmpty {
-            query += " \(restaurantName)"
+            query = "restaurant: \(restaurantName) dish: \(dishName)"
+            print("✅ Added explicit restaurant and dish to query")
+        } else {
+            query = "dish: \(dishName)"
+            print("❌ Restaurant name is nil or empty, only adding dish to query")
         }
         
         // Add food-related keywords to improve image search results
         query += " food dish meal"
         
+        print("🎯 Final search query: '\(query)'")
         return query
     }
     
@@ -85,6 +105,10 @@ class ImageSearchService: ObservableObject {
         guard !searchEngineId.isEmpty, searchEngineId != "YOUR_SEARCH_ENGINE_ID" else {
             throw ImageSearchError.apiError("Google Custom Search Engine ID not configured")
         }
+        
+        print("🔍 Searching for: '\(query)'")
+        print("🔑 Using API Key: \(String(apiKey.prefix(10)))...")
+        print("🔧 Using Search Engine ID: \(searchEngineId)")
         
         // Construct URL with query parameters
         var components = URLComponents(string: baseURL)
@@ -103,6 +127,8 @@ class ImageSearchService: ObservableObject {
             throw ImageSearchError.invalidURL
         }
         
+        print("🌐 Request URL: \(url)")
+        
         // Create URL request with timeout
         var request = URLRequest(url: url)
         request.timeoutInterval = 30.0
@@ -115,8 +141,11 @@ class ImageSearchService: ObservableObject {
             throw ImageSearchError.apiError("Invalid HTTP response")
         }
         
+        print("📡 HTTP Status: \(httpResponse.statusCode)")
+        
         guard httpResponse.statusCode == 200 else {
             let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            print("❌ API Error: \(errorMessage)")
             throw ImageSearchError.apiError("API request failed with status \(httpResponse.statusCode): \(errorMessage)")
         }
         
@@ -129,8 +158,18 @@ class ImageSearchService: ObservableObject {
                 item.link
             } ?? []
             
+            print("📸 Found \(imageURLs.count) image URLs")
+            if !imageURLs.isEmpty {
+                print("🔗 First image URL: \(imageURLs[0])")
+            }
+            
             return imageURLs
         } catch {
+            print("❌ JSON Parse Error: \(error)")
+            // Print the raw response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("📄 Raw Response: \(responseString)")
+            }
             throw ImageSearchError.apiError("Failed to parse API response: \(error.localizedDescription)")
         }
     }
@@ -277,6 +316,37 @@ struct ImageInfo: Codable {
     let thumbnailLink: String?
     let thumbnailHeight: String?
     let thumbnailWidth: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case contextLink
+        case thumbnailLink
+        case thumbnailHeight
+        case thumbnailWidth
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        contextLink = try container.decodeIfPresent(String.self, forKey: .contextLink)
+        thumbnailLink = try container.decodeIfPresent(String.self, forKey: .thumbnailLink)
+        
+        // Handle both string and numeric values for thumbnail dimensions
+        if let heightString = try? container.decodeIfPresent(String.self, forKey: .thumbnailHeight) {
+            thumbnailHeight = heightString
+        } else if let heightInt = try? container.decodeIfPresent(Int.self, forKey: .thumbnailHeight) {
+            thumbnailHeight = String(heightInt)
+        } else {
+            thumbnailHeight = nil
+        }
+        
+        if let widthString = try? container.decodeIfPresent(String.self, forKey: .thumbnailWidth) {
+            thumbnailWidth = widthString
+        } else if let widthInt = try? container.decodeIfPresent(Int.self, forKey: .thumbnailWidth) {
+            thumbnailWidth = String(widthInt)
+        } else {
+            thumbnailWidth = nil
+        }
+    }
 }
 
 struct SearchInformation: Codable {
