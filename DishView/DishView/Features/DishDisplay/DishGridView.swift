@@ -4,9 +4,11 @@ struct DishGridView: View {
     @ObservedObject var appState: AppState
     @State private var searchText = ""
     @State private var selectedSection: String?
+    @State private var isDownloadingImages = false
+    @State private var downloadedDishes: [Dish] = []
     
     var filteredDishes: [Dish] {
-        var dishes = appState.dishes
+        var dishes = downloadedDishes.isEmpty ? appState.dishes : downloadedDishes
         
         if !searchText.isEmpty {
             dishes = dishes.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
@@ -26,18 +28,20 @@ struct DishGridView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 12) {
+                // Header (more compact)
+                VStack(spacing: 4) {
                     Text(appState.restaurantName)
-                        .font(.title)
-                        .fontWeight(.bold)
+                        .font(.title2)
+                        .fontWeight(.semibold)
                         .multilineTextAlignment(.center)
+                        .padding(.bottom, 0)
                     
                     Text("\(filteredDishes.count) dishes found")
-                        .font(.subheadline)
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                 }
-                .padding()
+                .padding(.top, 8)
+                .padding(.bottom, 0)
                 
                 // Search and Filter
                 VStack(spacing: 12) {
@@ -80,14 +84,30 @@ struct DishGridView: View {
                 }
                 
                 // Dish Grid
-                if !filteredDishes.isEmpty {
+                if isDownloadingImages && downloadedDishes.isEmpty {
+                    Spacer()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        
+                        Text("Searching for dish images...")
+                            .font(.headline)
+                        
+                        Text("This may take a few moments")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                } else if !filteredDishes.isEmpty {
                     ScrollView {
                         LazyVGrid(columns: [
                             GridItem(.flexible()),
                             GridItem(.flexible())
                         ], spacing: 16) {
                             ForEach(filteredDishes) { dish in
-                                DishCardView(dish: dish)
+                                DishCardView(dish: dish, restaurantName: appState.restaurantName.isEmpty ? nil : appState.restaurantName)
                             }
                         }
                         .padding()
@@ -111,7 +131,7 @@ struct DishGridView: View {
                     }
                     
                     Button("Back") {
-                        appState.currentStep = .dishExtraction
+                        appState.currentStep = .menuExtraction
                     }
                     .foregroundColor(.secondary)
                 }
@@ -119,6 +139,54 @@ struct DishGridView: View {
             }
             .navigationTitle("Dish View")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                print("📱 DishGridView appeared")
+                print("📊 downloadedDishes.count: \(downloadedDishes.count)")
+                print("📊 appState.dishes.count: \(appState.dishes.count)")
+                print("📊 isDownloadingImages: \(isDownloadingImages)")
+                
+                if downloadedDishes.isEmpty && !appState.dishes.isEmpty {
+                    print("🚀 Triggering image download")
+                    downloadImagesForDishes()
+                } else {
+                    print("⏭️ Skipping image download - already downloaded or no dishes")
+                }
+            }
+        }
+    }
+    
+    private func downloadImagesForDishes() {
+        guard !appState.dishes.isEmpty else { 
+            print("❌ No dishes to download images for")
+            return 
+        }
+        
+        print("🔄 Setting isDownloadingImages = true")
+        isDownloadingImages = true
+        
+        Task {
+            print("🖼️ Starting image download for \(appState.dishes.count) dishes")
+            print("🏪 Restaurant name: '\(appState.restaurantName.isEmpty ? "empty" : appState.restaurantName)'")
+            
+            let updatedDishes = await ImageSearchService.shared.searchDishImages(
+                for: appState.dishes,
+                restaurantName: appState.restaurantName.isEmpty ? nil : appState.restaurantName
+            )
+            
+            await MainActor.run {
+                downloadedDishes = updatedDishes
+                isDownloadingImages = false
+                
+                let successCount = updatedDishes.filter { $0.image != nil }.count
+                print("✅ Image download completed: \(successCount)/\(updatedDishes.count) dishes have images")
+                print("🔄 Setting isDownloadingImages = false")
+                
+                // Debug: Verify dish matching
+                print("🔍 Verifying dish matching in DishGridView:")
+                for (index, dish) in updatedDishes.enumerated() {
+                    print("  Dish \(index + 1): '\(dish.name)' (ID: \(dish.id)) - Has image: \(dish.image != nil)")
+                }
+            }
         }
     }
 }

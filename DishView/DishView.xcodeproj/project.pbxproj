@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0E8330D12E15E6A000952947 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0E8330CF2E15E65F00952947 /* Config.plist */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0EC89AD52E159E90008CBD84 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,10 +33,6 @@
 		0EC89AD42E159E90008CBD84 /* DishViewTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DishViewTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EC89ADE2E159E90008CBD84 /* DishViewUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DishViewUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXBuildFile section */
-		0E8330D12E15E6A000952947 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0E8330CF2E15E65F00952947 /* Config.plist */; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0EC89AC92E159E8F008CBD84 /* DishView */ = {

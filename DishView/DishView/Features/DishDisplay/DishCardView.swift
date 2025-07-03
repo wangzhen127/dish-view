@@ -2,7 +2,13 @@ import SwiftUI
 
 struct DishCardView: View {
     let dish: Dish
+    let restaurantName: String?
     @State private var showingDetail = false
+    
+    init(dish: Dish, restaurantName: String? = nil) {
+        self.dish = dish
+        self.restaurantName = restaurantName
+    }
     
     var body: some View {
         Button(action: {
@@ -70,7 +76,7 @@ struct DishCardView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showingDetail) {
-            DishDetailView(dish: dish)
+            DishDetailView(dish: dish, restaurantName: restaurantName)
         }
     }
 }
@@ -81,10 +87,12 @@ struct DishDetailView: View {
     @State private var updatedDish: Dish
     
     let dish: Dish
+    let restaurantName: String?
     let onRetryImage: ((Dish) -> Void)?
     
-    init(dish: Dish, onRetryImage: ((Dish) -> Void)? = nil) {
+    init(dish: Dish, restaurantName: String? = nil, onRetryImage: ((Dish) -> Void)? = nil) {
         self.dish = dish
+        self.restaurantName = restaurantName
         self.onRetryImage = onRetryImage
         self._updatedDish = State(initialValue: dish)
     }
@@ -213,7 +221,7 @@ struct DishDetailView: View {
                 // Attempt to search for the image
                 if let image = try await ImageSearchService.shared.searchDishImage(
                     dishName: retryDish.name,
-                    restaurantName: nil // Could be passed from parent view
+                    restaurantName: restaurantName
                 ) {
                     // Success - update with new image
                     await MainActor.run {

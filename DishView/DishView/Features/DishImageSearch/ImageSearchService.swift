@@ -43,31 +43,55 @@ class ImageSearchService: ObservableObject {
             print("🏪 Restaurant: \(restaurantName)")
         }
         
-        var updatedDishes = dishes
+        // Create a copy of dishes to avoid any reference issues
+        var updatedDishes = dishes.map { dish in
+            var newDish = dish
+            newDish.isImageLoading = false
+            newDish.imageLoadError = false
+            newDish.image = nil // Reset image to ensure clean state
+            return newDish
+        }
         
-        for (index, dish) in dishes.enumerated() {
-            print("🔍 Searching for dish \(index + 1)/\(dishes.count): '\(dish.name)'")
+        // Process dishes sequentially to avoid race conditions
+        for (index, originalDish) in dishes.enumerated() {
+            print("🔍 Searching for dish \(index + 1)/\(dishes.count): '\(originalDish.name)' (ID: \(originalDish.id))")
+            
+            // Verify we're updating the correct dish
+            guard updatedDishes[index].id == originalDish.id else {
+                print("❌ Dish ID mismatch at index \(index)! Expected: \(originalDish.id), Found: \(updatedDishes[index].id)")
+                continue
+            }
+            
             updatedDishes[index].isImageLoading = true
             
             do {
-                if let image = try await searchDishImage(dishName: dish.name, restaurantName: restaurantName) {
-                    print("✅ Found image for '\(dish.name)'")
+                if let image = try await searchDishImage(dishName: originalDish.name, restaurantName: restaurantName) {
+                    print("✅ Found image for '\(originalDish.name)' (ID: \(originalDish.id))")
                     updatedDishes[index].image = image
                     updatedDishes[index].imageLoadError = false
                 } else {
-                    print("❌ No image found for '\(dish.name)'")
+                    print("❌ No image found for '\(originalDish.name)' (ID: \(originalDish.id))")
                     updatedDishes[index].imageLoadError = true
                 }
             } catch {
-                print("💥 Error searching for '\(dish.name)': \(error)")
+                print("💥 Error searching for '\(originalDish.name)' (ID: \(originalDish.id)): \(error)")
                 updatedDishes[index].imageLoadError = true
             }
             
             updatedDishes[index].isImageLoading = false
+            
+            // Verify the dish is still correctly matched after update
+            print("🔍 After update - Dish \(index + 1): '\(updatedDishes[index].name)' (ID: \(updatedDishes[index].id)) - Has image: \(updatedDishes[index].image != nil)")
         }
         
         let successCount = updatedDishes.filter { $0.image != nil }.count
         print("🎯 Image search completed: \(successCount)/\(dishes.count) dishes have images")
+        
+        // Final verification of dish matching
+        print("🔍 Final verification of dish matching:")
+        for (index, dish) in updatedDishes.enumerated() {
+            print("  Dish \(index + 1): '\(dish.name)' (ID: \(dish.id)) - Has image: \(dish.image != nil)")
+        }
         
         return updatedDishes
     }

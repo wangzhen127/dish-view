@@ -15,10 +15,8 @@ struct ContentView: View {
             switch appState.currentStep {
             case .menuInput:
                 MenuCaptureView(appState: appState)
-            case .restaurantConfirmation:
-                RestaurantConfirmationView(appState: appState)
-            case .dishExtraction:
-                DishExtractionView(appState: appState)
+            case .menuExtraction:
+                MenuExtractionView(appState: appState)
             case .dishDisplay:
                 DishGridView(appState: appState)
             }

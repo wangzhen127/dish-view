@@ -102,7 +102,7 @@ struct DishExtractionView: View {
                         }
                         
                         Button("Back") {
-                            appState.currentStep = .restaurantConfirmation
+                            appState.currentStep = .menuInput
                         }
                         .foregroundColor(.secondary)
                     }
@@ -127,6 +127,15 @@ struct DishExtractionView: View {
     }
     
     private func extractDishes() {
+        // Check if we already have extracted menu data from the previous step
+        if let existingMenuData = appState.extractedMenuData {
+            print("✅ Reusing existing menu data - no API call needed")
+            extractedDishes = existingMenuData.dishes
+            isExtracting = false
+            return
+        }
+        
+        // Fallback: extract if no existing data (shouldn't happen in normal flow)
         guard !appState.menuImages.isEmpty else {
             extractionError = "No menu images available for extraction."
             isExtracting = false
@@ -138,15 +147,13 @@ struct DishExtractionView: View {
         
         Task {
             do {
-                let dishes = try await OCRProcessor.shared.extractDishes(from: appState.menuImages)
+                let menuData = try await OCRProcessor.shared.extractMenuData(from: appState.menuImages)
                 
                 await MainActor.run {
-                    extractedDishes = dishes
+                    appState.setExtractedMenuData(menuData)
+                    extractedDishes = menuData.dishes
                     isExtracting = false
                 }
-                
-                // Search for images for all extracted dishes
-                await searchImagesForDishes(dishes)
                 
             } catch {
                 await MainActor.run {
@@ -154,21 +161,6 @@ struct DishExtractionView: View {
                     isExtracting = false
                 }
             }
-        }
-    }
-    
-    private func searchImagesForDishes(_ dishes: [Dish]) async {
-        print("Starting image search for \(dishes.count) dishes")
-        print("🏪 Restaurant name from app state: '\(appState.restaurantName.isEmpty ? "empty" : appState.restaurantName)'")
-        
-        let updatedDishes = await ImageSearchService.shared.searchDishImages(
-            for: dishes,
-            restaurantName: appState.restaurantName
-        )
-        
-        await MainActor.run {
-            extractedDishes = updatedDishes
-            print("Image search completed. \(updatedDishes.filter { $0.image != nil }.count) dishes have images")
         }
     }
 }
@@ -221,56 +213,7 @@ struct DishExtractionCard: View {
     }
 }
 
-struct DishEditView: View {
-    @Environment(\.dismiss) private var dismiss
-    let dish: Dish
-    let onSave: (Dish) -> Void
-    
-    @State private var name: String
-    @State private var section: String
-    @State private var price: String
-    
-    init(dish: Dish, onSave: @escaping (Dish) -> Void) {
-        self.dish = dish
-        self.onSave = onSave
-        self._name = State(initialValue: dish.name)
-        self._section = State(initialValue: dish.section ?? "")
-        self._price = State(initialValue: dish.price ?? "")
-    }
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section("Dish Information") {
-                    TextField("Dish Name", text: $name)
-                    TextField("Section (e.g., Appetizers)", text: $section)
-                    TextField("Price", text: $price)
-                }
-            }
-            .navigationTitle("Edit Dish")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        var updatedDish = dish
-                        updatedDish.name = name
-                        updatedDish.section = section.isEmpty ? nil : section
-                        updatedDish.price = price.isEmpty ? nil : price
-                        onSave(updatedDish)
-                        dismiss()
-                    }
-                    .disabled(name.isEmpty)
-                }
-            }
-        }
-    }
-}
+
 
 #Preview {
     DishExtractionView(appState: AppState())

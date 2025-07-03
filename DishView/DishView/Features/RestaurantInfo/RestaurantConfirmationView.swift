@@ -95,7 +95,7 @@ struct RestaurantConfirmationView: View {
                             isDisabled: restaurantName.isEmpty
                         ) {
                             appState.setRestaurantName(restaurantName)
-                            appState.currentStep = .dishExtraction
+                            appState.currentStep = .menuExtraction
                         }
                         
                         Button("Back") {
@@ -126,10 +126,13 @@ struct RestaurantConfirmationView: View {
         
         Task {
             do {
-                let extractedName = try await OCRProcessor.shared.extractRestaurantName(from: appState.menuImages)
+                let menuData = try await OCRProcessor.shared.extractMenuData(from: appState.menuImages)
                 
                 await MainActor.run {
-                    if let name = extractedName, !name.isEmpty {
+                    // Store the complete menu data for reuse
+                    appState.setExtractedMenuData(menuData)
+                    
+                    if let name = menuData.restaurantName, !name.isEmpty {
                         restaurantName = name
                     } else {
                         restaurantName = ""

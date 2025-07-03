@@ -22,39 +22,30 @@ class OCRProcessor: ObservableObject {
     }
     
     func extractRestaurantName(from images: [UIImage]) async throws -> String? {
-        guard let firstImage = images.first else {
-            print("No images provided for restaurant name extraction")
-            throw OCRError.invalidImage
-        }
-        
-        print("Extracting restaurant name from image with size: \(firstImage.size)")
-        
-        let prompt = """
-        Analyze this restaurant menu image and extract the restaurant name.
-        Look for the restaurant name typically found at the top of the menu.
-        Return only the restaurant name, nothing else.
-        If no clear restaurant name is found, return null.
-        """
-        
-        do {
-            let result = try await geminiService.analyzeImage(firstImage, prompt: prompt)
-            print("Restaurant name extraction result: \(result ?? "null")")
-            return result
-        } catch {
-            print("Failed to extract restaurant name: \(error)")
-            throw error
-        }
+        // This function is now deprecated - use extractMenuData instead
+        let menuData = try await extractMenuData(from: images)
+        return menuData.restaurantName
     }
     
     func extractDishes(from images: [UIImage]) async throws -> [Dish] {
+        // This function is now deprecated - use extractMenuData instead
+        let menuData = try await extractMenuData(from: images)
+        return menuData.dishes
+    }
+    
+    func extractMenuData(from images: [UIImage]) async throws -> MenuData {
         guard let firstImage = images.first else {
             throw OCRError.invalidImage
         }
         
+        print("Extracting restaurant name and dishes from image with size: \(firstImage.size)")
+        
         let prompt = """
-        Analyze this restaurant menu image and extract all dishes with their sections and prices.
+        Analyze this restaurant menu image and extract both the restaurant name and all dishes with their sections and prices.
+        
         Return the data in this exact JSON format:
         {
+            "restaurantName": "Restaurant Name",
             "dishes": [
                 {
                     "name": "Dish Name",
@@ -65,15 +56,17 @@ class OCRProcessor: ObservableObject {
         }
         
         Rules:
+        - Extract the restaurant name from the top of the menu
         - Extract only actual dishes, not section headers
         - Include prices if available
         - Group dishes by their sections
         - Clean up dish names (remove special characters, extra spaces)
         - If no price is found, set price to null
+        - If no clear restaurant name is found, set restaurantName to null
         """
         
         let jsonResponse = try await geminiService.analyzeImage(firstImage, prompt: prompt)
-        return parseDishesFromJSON(jsonResponse)
+        return parseMenuDataFromJSON(jsonResponse)
     }
     
     // MARK: - Gemini Integration
@@ -123,6 +116,44 @@ class OCRProcessor: ObservableObject {
             print("Failed to parse dishes JSON: \(error)")
             print("Cleaned JSON: \(cleanJSON)")
             return []
+        }
+    }
+    
+    private func parseMenuDataFromJSON(_ jsonString: String?) -> MenuData {
+        guard let jsonString = jsonString else {
+            return MenuData(restaurantName: nil, dishes: [])
+        }
+        
+        // Clean up the JSON string - remove markdown code blocks if present
+        var cleanJSON = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove markdown code blocks (```json ... ```)
+        if cleanJSON.hasPrefix("```json") {
+            cleanJSON = String(cleanJSON.dropFirst(7)) // Remove "```json"
+        }
+        if cleanJSON.hasPrefix("```") {
+            cleanJSON = String(cleanJSON.dropFirst(3)) // Remove "```"
+        }
+        if cleanJSON.hasSuffix("```") {
+            cleanJSON = String(cleanJSON.dropLast(3)) // Remove "```"
+        }
+        
+        cleanJSON = cleanJSON.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard let data = cleanJSON.data(using: .utf8) else {
+            print("Failed to convert JSON string to data")
+            return MenuData(restaurantName: nil, dishes: [])
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            let response = try decoder.decode(MenuDataResponse.self, from: data)
+            print("Successfully parsed restaurant: '\(response.restaurantName ?? "nil")' and \(response.dishes.count) dishes")
+            return MenuData(restaurantName: response.restaurantName, dishes: response.dishes)
+        } catch {
+            print("Failed to parse menu data JSON: \(error)")
+            print("Cleaned JSON: \(cleanJSON)")
+            return MenuData(restaurantName: nil, dishes: [])
         }
     }
 }
@@ -257,6 +288,16 @@ class GeminiService {
 // MARK: - Data Models
 
 struct DishResponse: Codable {
+    let dishes: [Dish]
+}
+
+struct MenuDataResponse: Codable {
+    let restaurantName: String?
+    let dishes: [Dish]
+}
+
+struct MenuData {
+    let restaurantName: String?
     let dishes: [Dish]
 }
 

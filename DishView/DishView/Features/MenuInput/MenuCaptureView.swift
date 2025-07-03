@@ -9,17 +9,9 @@ struct MenuCaptureView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
+            VStack(spacing: 16) {
                 // Header
-                VStack(spacing: 12) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
-                    
-                    Text("Capture Menu")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
+                VStack(spacing: 8) {
                     Text("Take photos of the restaurant menu to extract dish information")
                         .font(.body)
                         .foregroundColor(.secondary)
@@ -47,20 +39,9 @@ struct MenuCaptureView: View {
                     }
                 } else {
                     Spacer()
-                    
-                    EmptyStateView(
-                        icon: "camera",
-                        title: "No Menu Images",
-                        message: "Take photos of the restaurant menu to get started visualizing the dishes.",
-                        actionTitle: "Add Photos"
-                    ) {
-                        showingImagePicker = true
-                    }
-                    
-                    Spacer()
                 }
                 
-                // Action Buttons
+                // Action Buttons - back to original location
                 VStack(spacing: 12) {
                     HStack(spacing: 16) {
                         Button(action: {
@@ -98,7 +79,7 @@ struct MenuCaptureView: View {
                         "Continue",
                         isDisabled: appState.menuImages.isEmpty
                     ) {
-                        appState.currentStep = .restaurantConfirmation
+                        appState.currentStep = .menuExtraction
                     }
                 }
                 .padding()
