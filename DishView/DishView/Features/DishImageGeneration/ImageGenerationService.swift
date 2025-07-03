@@ -42,12 +42,12 @@ class ImageGenerationService: ObservableObject {
         onDishUpdated: @escaping (Dish) -> Void,
         onComplete: @escaping () -> Void
     ) async {
-        print("🍽️ Starting parallel image generation for \(dishes.count) dishes with concurrency of 5")
+        print("🍽️ Starting parallel image generation for \(dishes.count) dishes with concurrency of 3")
         if let restaurantName = restaurantName {
             print("🏪 Restaurant: \(restaurantName)")
         }
         
-        // Create a task group for parallel processing with concurrency limit of 5
+        // Create a task group for parallel processing with concurrency limit of 3
         await withThrowingTaskGroup(of: Void.self) { group in
             var activeTasks = 0
             var completedTasks = 0
@@ -56,30 +56,31 @@ class ImageGenerationService: ObservableObject {
             // Process dishes with concurrency limit
             for dish in dishes {
                 // Wait if we've reached the concurrency limit
-                while activeTasks >= 5 {
+                while activeTasks >= 3 {
                     if let _ = try? await group.next() {
                         activeTasks -= 1
                         completedTasks += 1
                     }
                 }
                 
-                // Start a new task for this dish
-                activeTasks += 1
+                // Create a local copy of the dish to avoid captured variable warning
+                let dishCopy = dish
                 group.addTask {
                     do {
-                        let imageData = try await self.generateImage(dishName: dish.name, restaurantName: restaurantName)
+                        let imageData = try await self.generateImage(dishName: dishCopy.name, restaurantName: restaurantName)
                         if let image = UIImage(data: imageData) {
-                            var updatedDish = dish
+                            var updatedDish = dishCopy
                             updatedDish.image = image
                             await MainActor.run {
                                 onDishUpdated(updatedDish)
                             }
-                            print("✅ Generated image for '\(dish.name)' (ID: \(dish.id))")
+                            print("✅ Generated image for '\(dishCopy.name)' (ID: \(dishCopy.id))")
                         }
                     } catch {
-                        print("💥 Error generating image for '\(dish.name)' (ID: \(dish.id)): \(error)")
+                        print("💥 Error generating image for '\(dishCopy.name)' (ID: \(dishCopy.id)): \(error)")
                     }
                 }
+                activeTasks += 1
             }
             
             // Wait for all remaining tasks to complete
