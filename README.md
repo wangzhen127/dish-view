@@ -1,47 +1,42 @@
-# Dish View iOS App
+# DishView iOS App
 
-A modern iOS application that helps customers visualize dishes listed on a restaurant's menu by extracting dish names from photos of text menus and showing representative dish images.
+A modern iOS application that transforms restaurant menu photos into a visual dining experience. Using AI-powered text extraction and image generation, DishView extracts dish information from menu photos and generates realistic dish images to help customers visualize their dining options.
 
-## Features
+## 🍽️ Core Functionality
 
-### 🍽️ Menu Image Input
-- Take photos directly in the app using the camera
+### 1. **Menu Photo Capture**
+- Take photos directly in the app using the built-in camera
 - Upload existing photos from the device gallery
-- Preview and delete functionality for uploaded images
-- Support for multiple menu photos
+- Preview and manage multiple menu images
+- Delete unwanted photos before processing
 
-### 🏪 Restaurant Name Extraction
-- Automatic extraction of restaurant names from menu photos using OCR
-- Manual correction and editing capabilities
-- Integration with device location for improved accuracy
+### 2. **AI-Powered Menu Analysis**
+- **Restaurant Name Extraction**: Automatically identifies and extracts restaurant names from menu images
+- **Dish Information Extraction**: Uses Google Gemini AI to intelligently parse dish names, sections, and prices
+- **Structured Data Output**: Organizes extracted information into a clean, editable format
 
-### 📝 Dish List Extraction
-- OCR-powered text extraction from menu images
-- Intelligent parsing of dish names, prices, and sections
-- User-friendly interface for reviewing and editing extracted dishes
-- Group dishes by menu sections (Appetizers, Main Course, Desserts, etc.)
+### 3. **AI-Generated Dish Images**
+- **Realistic Image Generation**: Uses Google Gemini's image generation model to create representative dish images
+- **Parallel Processing**: Generates multiple dish images simultaneously with controlled concurrency (3 parallel requests)
+- **Progressive Loading**: Images appear as soon as they're ready, providing immediate visual feedback
+- **Smart Retry Logic**: Automatic retry with exponential backoff for failed image generation attempts
 
-### 🖼️ Dish Image Retrieval
-- Search for representative images for each dish
-- Integration with Google Custom Search API
-- Local caching of search results
-- Fallback handling for missing images
-- Retry functionality for failed image searches
+### 4. **Interactive Dish Display**
+- **Grid Layout**: Beautiful, responsive grid display of dishes with generated images
+- **Search & Filter**: Search dishes by name and filter by menu sections
+- **Dish Management**: Edit dish information, delete dishes, and reorganize the menu
+- **Restaurant Context**: Displays restaurant name and dish count for context
 
-### 🎨 Beautiful Dish Display
-- Modern grid layout for dish visualization
-- Search and filter functionality
-- Detailed dish information view
-- Responsive design for all iOS devices
+## 🏗️ App Architecture
 
-### 🔄 Restart Workflow
-- Complete app reset functionality
-- Clear all stored data and return to initial state
+### **Workflow-Based Design**
+The app follows a clear 3-step workflow:
 
-## Architecture
+1. **Menu Input** (`MenuCaptureView`): Capture and manage menu photos
+2. **Menu Extraction** (`MenuExtractionView`): Review and edit extracted restaurant and dish information
+3. **Dish Display** (`DishGridView`): Browse dishes with generated images
 
-The app follows a clean, modular architecture with the following structure:
-
+### **Technical Architecture**
 ```
 DishView/
 ├── App/
@@ -49,142 +44,149 @@ DishView/
 │   └── ContentView.swift          # Main workflow orchestrator
 │
 ├── Models/
-│   ├── AppState.swift             # Main app state management
-│   ├── DishModel.swift            # Dish data model
-│   └── RestaurantModel.swift      # Restaurant data model
+│   ├── AppState.swift             # Central state management
+│   └── DishModel.swift            # Dish data model
 │
 ├── Features/
 │   ├── MenuInput/
 │   │   ├── MenuCaptureView.swift  # Photo capture interface
 │   │   └── CameraView.swift       # Camera integration
 │   │
-│   ├── RestaurantInfo/
-│   │   └── RestaurantConfirmationView.swift
-│   │
 │   ├── DishExtraction/
-│   │   ├── DishExtractionView.swift
-│   │   └── OCRProcessor.swift     # Text extraction service
+│   │   ├── MenuExtractionView.swift # Extraction review interface
+│   │   ├── DishEditView.swift     # Dish editing interface
+│   │   └── OCRProcessor.swift     # AI-powered text extraction
 │   │
-│   ├── DishImageSearch/
-│   │   └── ImageSearchService.swift
+│   ├── DishImageGeneration/
+│   │   └── ImageGenerationService.swift # AI image generation
 │   │
 │   └── DishDisplay/
 │       ├── DishGridView.swift     # Main dish display
 │       └── DishCardView.swift     # Individual dish cards
 │
 ├── Shared/
-│   ├── Views/
-│   │   ├── PrimaryButton.swift    # Reusable button component
-│   │   ├── LoadingIndicator.swift # Loading states
-│   │   └── EmptyStateView.swift   # Empty state handling
-│   └── Extensions/
-│       └── UIImage+Resize.swift   # Image utilities
+│   └── Views/
+│       ├── PrimaryButton.swift    # Reusable button component
+│       ├── LoadingIndicator.swift # Loading states
+│       └── EmptyStateView.swift   # Empty state handling
 │
-└── Resources/
-    └── Assets.xcassets           # App icons and assets
+└── Assets.xcassets               # App icons and assets
 ```
 
-## Technology Stack
+## 🛠️ Technology Stack
 
 - **Framework**: SwiftUI
 - **Language**: Swift 5.9+
-- **Platform**: iOS 17.0+
-- **OCR**: Google Gemini API (AI-powered text extraction)
-- **Image Search**: Google Custom Search API
-- **Architecture**: MVVM with ObservableObject
+- **Platform**: iOS 18.5+
+- **AI Services**: 
+  - **Google Gemini API** for text extraction and image generation
+  - **Gemini 2.5 Flash** for menu analysis
+  - **Gemini 2.0 Flash Preview** for image generation
+- **Architecture**: MVVM with ObservableObject pattern
+- **Concurrency**: Swift Concurrency with TaskGroup for parallel processing
 
-## Requirements
+## 🚀 Key Features
 
-- iOS 17.0 or later
-- Xcode 15.0 or later
-- Swift 5.9 or later
-- Camera and Photo Library permissions
+### **Smart Caching & Performance**
+- **Image State Tracking**: Detects when menu images change to avoid redundant processing
+- **Progressive Image Loading**: Images appear as they're generated, not all at once
+- **Concurrency Control**: Limits parallel API requests to prevent rate limiting
 
-## Installation
+### **Error Handling & Resilience**
+- **Exponential Backoff**: Intelligent retry logic for transient API errors
+- **Graceful Degradation**: App continues to function even if some images fail to generate
+- **User-Friendly Errors**: Clear error messages and recovery options
 
-1. Clone the repository:
+### **User Experience**
+- **Intuitive Workflow**: Clear 3-step process from photo to visualization
+- **Real-Time Feedback**: Loading indicators and progress updates throughout
+- **Responsive Design**: Optimized for all iOS device sizes
+- **Accessibility**: Built with accessibility best practices
+
+## 📱 Requirements
+
+- **iOS**: 18.5 or later
+- **Xcode**: 16.0 or later
+- **Swift**: 5.9 or later
+- **Permissions**: Camera and Photo Library access
+
+## ⚙️ Setup & Configuration
+
+### 1. **Clone the Repository**
 ```bash
 git clone https://github.com/yourusername/dish-view.git
-cd dish-view
+cd dish-view/DishView
 ```
 
-2. Open the project in Xcode:
+### 2. **Configure API Keys**
+Create a `Config.plist` file in the project root with your Google Gemini API key:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>GEMINI_API_KEY</key>
+    <string>YOUR_GEMINI_API_KEY_HERE</string>
+</dict>
+</plist>
+```
+
+### 3. **Get Your Gemini API Key**
+1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Create a new API key
+3. Ensure the key has access to both text and image generation models
+
+### 4. **Build and Run**
 ```bash
 open DishView.xcodeproj
+# Build and run on simulator or device
 ```
 
-3. Build and run the project on a simulator or device.
+## 🎯 Usage Guide
 
-## Usage
+### **Step 1: Capture Menu Photos**
+1. Open the app and tap "Take Photo" or "Choose Photo"
+2. Capture clear photos of the restaurant menu
+3. Add multiple photos if needed for complete menu coverage
+4. Tap "Continue" when ready
 
-### Basic Workflow
+### **Step 2: Review Extracted Information**
+1. Review the automatically extracted restaurant name
+2. Check the list of extracted dishes, sections, and prices
+3. Edit any incorrect information by tapping on dishes
+4. Add or remove dishes as needed
+5. Tap "Continue" to proceed
 
-1. **Capture Menu**: Take photos or upload existing images of the restaurant menu
-2. **Confirm Restaurant**: Review and edit the extracted restaurant name
-3. **Extract Dishes**: Review and edit the extracted dish list
-4. **View Dishes**: Browse the visualized dishes with images
+### **Step 3: Browse Visualized Dishes**
+1. Wait for AI-generated dish images to appear (generates progressively)
+2. Use the search bar to find specific dishes
+3. Filter dishes by menu sections using the filter chips
+4. Tap "Start Over" to begin with a new menu
 
-### Advanced Features
+## 🔧 Development
 
-- **Search**: Use the search bar to find specific dishes
-- **Filter**: Filter dishes by menu sections
-- **Edit**: Tap on dishes to edit their information
-- **Restart**: Use "Start Over" to begin a new workflow
-
-## Configuration
-
-### Google Gemini API
-
-To enable AI-powered text extraction functionality:
-
-1. Create a Google Cloud Project
-2. Enable the Gemini API
-3. Get your API key from the Google AI Studio
-4. Add your API key to `Config.plist`:
-
-```xml
-<key>GEMINI_API_KEY</key>
-<string>YOUR_GEMINI_API_KEY_HERE</string>
-```
-
-### Google Custom Search API
-
-To enable dish image search functionality:
-
-1. Create a Google Cloud Project
-2. Enable the Custom Search API
-3. Create a Custom Search Engine
-4. Add your API credentials to `Config.plist`:
-
-```xml
-<key>GOOGLE_CUSTOM_SEARCH_API_KEY</key>
-<string>YOUR_API_KEY</string>
-<key>GOOGLE_CUSTOM_SEARCH_ENGINE_ID</key>
-<string>YOUR_SEARCH_ENGINE_ID</string>
-```
-
-## Development
-
-### Adding New Features
-
+### **Adding New Features**
 1. Create feature-specific views in the appropriate `Features/` directory
-2. Update the `AppState` model if new state management is needed
+2. Update `AppState.swift` for new state management needs
 3. Add navigation logic in `ContentView.swift`
-4. Update the README with new feature documentation
+4. Follow the existing MVVM pattern
 
-### Testing
-
-The app includes unit tests and UI tests:
-
+### **Testing**
 ```bash
-# Run unit tests
-xcodebuild test -scheme DishView -destination 'platform=iOS Simulator,name=iPhone 15'
+# Build the project
+xcodebuild -project DishView.xcodeproj -scheme DishView -destination 'platform=iOS Simulator,name=iPhone 16' build
 
-# Run UI tests
-xcodebuild test -scheme DishView -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:DishViewUITests
+# Run on simulator
+xcodebuild -project DishView.xcodeproj -scheme DishView -destination 'platform=iOS Simulator,name=iPhone 16' run
 ```
 
-## Contributing
+### **Performance Optimization**
+- **Concurrency**: Currently set to 3 parallel image generation requests
+- **Caching**: Image state tracking prevents redundant processing
+- **Memory Management**: Efficient image handling and cleanup
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -192,20 +194,16 @@ xcodebuild test -scheme DishView -destination 'platform=iOS Simulator,name=iPhon
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- Google Gemini API for AI-powered text extraction
-- SwiftUI for the modern UI framework
-- Google Custom Search API for image search
-
-## Support
-
-For support, email support@dishview.app or create an issue in this repository.
+- **Google Gemini API** for AI-powered text extraction and image generation
+- **SwiftUI** for the modern, declarative UI framework
+- **Apple** for the robust iOS development ecosystem
 
 ---
 
-**Note**: This is a production-ready version with all core features implemented. The app is ready for App Store submission. 
+**DishView** - Transforming menu photos into visual dining experiences with AI. 🍽️✨ 
