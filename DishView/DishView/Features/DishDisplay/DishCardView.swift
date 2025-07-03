@@ -3,11 +3,13 @@ import SwiftUI
 struct DishCardView: View {
     let dish: Dish
     let restaurantName: String?
+    let isLoading: Bool
     @State private var showingDetail = false
     
-    init(dish: Dish, restaurantName: String? = nil) {
+    init(dish: Dish, restaurantName: String? = nil, isLoading: Bool = false) {
         self.dish = dish
         self.restaurantName = restaurantName
+        self.isLoading = isLoading
     }
     
     var body: some View {
@@ -23,7 +25,7 @@ struct DishCardView: View {
                             .aspectRatio(contentMode: .fill)
                             .frame(height: 120)
                             .clipped()
-                    } else if dish.isImageLoading {
+                    } else if isLoading || dish.isImageLoading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle())
                             .frame(height: 120)
@@ -164,11 +166,11 @@ struct DishDetailView: View {
                         
                         // Action Button
                         Button(action: {
-                            retryImageSearch()
+                            retryImageGeneration()
                         }) {
                             HStack {
                                 Image(systemName: "arrow.clockwise")
-                                Text("Retry Image Search")
+                                Text("Retry Image Generation")
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
@@ -200,7 +202,7 @@ struct DishDetailView: View {
     
     // MARK: - Private Methods
     
-    private func retryImageSearch() {
+    private func retryImageGeneration() {
         guard !isRetryingImage else { return }
         
         isRetryingImage = true
@@ -218,8 +220,8 @@ struct DishDetailView: View {
                     updatedDish = retryDish
                 }
                 
-                // Attempt to search for the image
-                if let image = try await ImageSearchService.shared.searchDishImage(
+                        // Attempt to generate the image
+        if let image = try await ImageGenerationService.shared.generateDishImage(
                     dishName: retryDish.name,
                     restaurantName: restaurantName
                 ) {

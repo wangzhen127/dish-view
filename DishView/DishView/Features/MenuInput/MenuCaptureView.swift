@@ -6,6 +6,9 @@ struct MenuCaptureView: View {
     @State private var showingImagePicker = false
     @State private var showingCamera = false
     @State private var selectedItem: PhotosPickerItem?
+    @State private var cameraError: String?
+    @State private var showingErrorAlert = false
+    @State private var retryCount = 0
     
     var body: some View {
         NavigationView {
@@ -97,9 +100,24 @@ struct MenuCaptureView: View {
                 }
             }
             .sheet(isPresented: $showingCamera) {
-                CameraView { image in
-                    appState.addMenuImage(image)
+                CameraView(
+                    onImageCaptured: { image in
+                        appState.addMenuImage(image)
+                    },
+                    onError: { error in
+                        cameraError = error
+                        showingErrorAlert = true
+                    }
+                )
+            }
+            .alert("Camera Error", isPresented: $showingErrorAlert) {
+                Button("Retry") {
+                    retryCount += 1
+                    showingCamera = true
                 }
+                Button("OK") { }
+            } message: {
+                Text(cameraError ?? "Unknown error")
             }
         }
     }

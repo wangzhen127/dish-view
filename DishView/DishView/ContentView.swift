@@ -24,7 +24,7 @@ struct ContentView: View {
         .overlay(
             Group {
                 if appState.isLoading {
-                    LoadingOverlay("Processing...")
+                    LoadingIndicator()
                 }
             }
         )

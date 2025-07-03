@@ -162,7 +162,7 @@ class OCRProcessor: ObservableObject {
 
 class GeminiService {
     private let apiKey: String
-    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     
     init() {
         // Load API key from configuration
@@ -245,7 +245,7 @@ class GeminiService {
         }
         
         // Try the extension method as last resort
-        if let extensionData = image.toJPEGData(compressionQuality: 0.9) {
+        if let extensionData = image.jpegData(compressionQuality: 0.9) {
             return (extensionData, "image/jpeg")
         }
         

@@ -169,27 +169,46 @@ struct MenuExtractionView: View {
                             appState.currentStep = .dishDisplay
                         }
                         
-                        Button("Back") {
-                            appState.currentStep = .menuInput
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                appState.currentStep = .menuInput
+                            }) {
+                                HStack {
+                                    Image(systemName: "chevron.left")
+                                    Text("Back")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.secondary, lineWidth: 1)
+                                )
+                                .foregroundColor(.secondary)
+                            }
+                            
+                            Button(action: {
+                                // Clear cached extraction and force re-extract
+                                appState.extractedMenuData = nil
+                                isExtracting = true
+                                extractMenuData()
+                            }) {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Re-extract")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.blue, lineWidth: 1)
+                                )
+                                .foregroundColor(.blue)
+                            }
+                            .disabled(isExtracting)
                         }
-                        .foregroundColor(.secondary)
                     }
                     .padding()
                 }
-                // Add Re-extract button
-                Button(action: {
-                    // Clear cached extraction and force re-extract
-                    appState.extractedMenuData = nil
-                    isExtracting = true
-                    extractMenuData()
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text("Re-extract Names")
-                    }
-                }
-                .padding(.top, 8)
-                .disabled(isExtracting)
             }
             .navigationTitle("Menu Extraction")
             .navigationBarTitleDisplayMode(.inline)

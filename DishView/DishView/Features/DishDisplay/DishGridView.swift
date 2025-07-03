@@ -6,6 +6,7 @@ struct DishGridView: View {
     @State private var selectedSection: String?
     @State private var isDownloadingImages = false
     @State private var downloadedDishes: [Dish] = []
+    @State private var loadingProgress: [UUID: Bool] = [:]
     
     var filteredDishes: [Dish] {
         var dishes = downloadedDishes.isEmpty ? appState.dishes : downloadedDishes
@@ -84,14 +85,30 @@ struct DishGridView: View {
                 }
                 
                 // Dish Grid
-                if isDownloadingImages && downloadedDishes.isEmpty {
+                if !filteredDishes.isEmpty {
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 16) {
+                            ForEach(filteredDishes) { dish in
+                                DishCardView(
+                                    dish: dish, 
+                                    restaurantName: appState.restaurantName.isEmpty ? nil : appState.restaurantName,
+                                    isLoading: loadingProgress[dish.id] ?? false
+                                )
+                            }
+                        }
+                        .padding()
+                    }
+                } else if isDownloadingImages && downloadedDishes.isEmpty {
                     Spacer()
                     
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.5)
                         
-                        Text("Searching for dish images...")
+                        Text("Generating dish images...")
                             .font(.headline)
                         
                         Text("This may take a few moments")
@@ -100,18 +117,6 @@ struct DishGridView: View {
                     }
                     
                     Spacer()
-                } else if !filteredDishes.isEmpty {
-                    ScrollView {
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 16) {
-                            ForEach(filteredDishes) { dish in
-                                DishCardView(dish: dish, restaurantName: appState.restaurantName.isEmpty ? nil : appState.restaurantName)
-                            }
-                        }
-                        .padding()
-                    }
                 } else {
                     Spacer()
                     
@@ -164,29 +169,41 @@ struct DishGridView: View {
         print("🔄 Setting isDownloadingImages = true")
         isDownloadingImages = true
         
+        // Initialize dishes with loading state
+        downloadedDishes = appState.dishes.map { dish in
+            var newDish = dish
+            newDish.image = nil
+            return newDish
+        }
+        
+        // Initialize loading progress
+        loadingProgress = Dictionary(uniqueKeysWithValues: appState.dishes.map { ($0.id, true) })
+        
         Task {
-            print("🖼️ Starting image download for \(appState.dishes.count) dishes")
+            print("🖼️ Starting progressive image download for \(appState.dishes.count) dishes")
             print("🏪 Restaurant name: '\(appState.restaurantName.isEmpty ? "empty" : appState.restaurantName)'")
             
-            let updatedDishes = await ImageSearchService.shared.searchDishImages(
+            await ImageGenerationService.shared.generateDishImagesProgressive(
                 for: appState.dishes,
-                restaurantName: appState.restaurantName.isEmpty ? nil : appState.restaurantName
-            )
-            
-            await MainActor.run {
-                downloadedDishes = updatedDishes
-                isDownloadingImages = false
-                
-                let successCount = updatedDishes.filter { $0.image != nil }.count
-                print("✅ Image download completed: \(successCount)/\(updatedDishes.count) dishes have images")
-                print("🔄 Setting isDownloadingImages = false")
-                
-                // Debug: Verify dish matching
-                print("🔍 Verifying dish matching in DishGridView:")
-                for (index, dish) in updatedDishes.enumerated() {
-                    print("  Dish \(index + 1): '\(dish.name)' (ID: \(dish.id)) - Has image: \(dish.image != nil)")
+                restaurantName: appState.restaurantName.isEmpty ? nil : appState.restaurantName,
+                onDishUpdated: { updatedDish in
+                    Task { @MainActor in
+                        // Update the specific dish in our array
+                        if let index = downloadedDishes.firstIndex(where: { $0.id == updatedDish.id }) {
+                            downloadedDishes[index] = updatedDish
+                            loadingProgress[updatedDish.id] = false
+                            print("✅ Updated dish '\(updatedDish.name)' with image: \(updatedDish.image != nil)")
+                        }
+                    }
+                },
+                onComplete: {
+                    Task { @MainActor in
+                        isDownloadingImages = false
+                        let successCount = downloadedDishes.filter { $0.image != nil }.count
+                        print("✅ Progressive image download completed: \(successCount)/\(downloadedDishes.count) dishes have images")
+                    }
                 }
-            }
+            )
         }
     }
 }
