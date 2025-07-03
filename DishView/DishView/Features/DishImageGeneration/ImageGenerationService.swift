@@ -42,47 +42,56 @@ class ImageGenerationService: ObservableObject {
         onDishUpdated: @escaping (Dish) -> Void,
         onComplete: @escaping () -> Void
     ) async {
-        print("🍽️ Starting progressive image generation for \(dishes.count) dishes")
+        print("🍽️ Starting parallel image generation for \(dishes.count) dishes with concurrency of 5")
         if let restaurantName = restaurantName {
             print("🏪 Restaurant: \(restaurantName)")
         }
         
-        // Process dishes sequentially to avoid rate limiting
-        for dish in dishes {
-            print("🎨 Starting image generation for dish: '\(dish.name)' (ID: \(dish.id))")
+        // Create a task group for parallel processing with concurrency limit of 5
+        await withThrowingTaskGroup(of: Void.self) { group in
+            var activeTasks = 0
+            var completedTasks = 0
+            let totalTasks = dishes.count
             
-            var updatedDish = dish
-            updatedDish.isImageLoading = true
-            updatedDish.imageLoadError = false
-            updatedDish.image = nil
-            
-            // Notify that we're starting to load this dish
-            onDishUpdated(updatedDish)
-            
-            do {
-                if let image = try await self.generateDishImage(dishName: dish.name, restaurantName: restaurantName) {
-                    print("✅ Generated image for '\(dish.name)' (ID: \(dish.id))")
-                    updatedDish.image = image
-                    updatedDish.imageLoadError = false
-                } else {
-                    print("❌ No image generated for '\(dish.name)' (ID: \(dish.id))")
-                    updatedDish.imageLoadError = true
+            // Process dishes with concurrency limit
+            for dish in dishes {
+                // Wait if we've reached the concurrency limit
+                while activeTasks >= 5 {
+                    if let _ = try? await group.next() {
+                        activeTasks -= 1
+                        completedTasks += 1
+                    }
                 }
-            } catch {
-                print("💥 Error generating image for '\(dish.name)' (ID: \(dish.id)): \(error)")
-                updatedDish.imageLoadError = true
+                
+                // Start a new task for this dish
+                activeTasks += 1
+                group.addTask {
+                    do {
+                        let imageData = try await self.generateImage(dishName: dish.name, restaurantName: restaurantName)
+                        if let image = UIImage(data: imageData) {
+                            var updatedDish = dish
+                            updatedDish.image = image
+                            await MainActor.run {
+                                onDishUpdated(updatedDish)
+                            }
+                            print("✅ Generated image for '\(dish.name)' (ID: \(dish.id))")
+                        }
+                    } catch {
+                        print("💥 Error generating image for '\(dish.name)' (ID: \(dish.id)): \(error)")
+                    }
+                }
             }
             
-            updatedDish.isImageLoading = false
+            // Wait for all remaining tasks to complete
+            while let _ = try? await group.next() {
+                completedTasks += 1
+            }
             
-            // Notify that this dish is complete
-            onDishUpdated(updatedDish)
-            
-            // Add a small delay to avoid rate limiting
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            print("🎉 Completed image generation for \(completedTasks)/\(totalTasks) dishes")
         }
         
         // All tasks completed
+        print("🎉 All image generation tasks completed")
         onComplete()
     }
     
@@ -98,12 +107,7 @@ class ImageGenerationService: ObservableObject {
         // Create the image generation prompt
         let prompt = createGenerationPrompt(dishName: dishName, restaurantName: restaurantName)
         
-        // Construct the URL
-        guard let url = URL(string: "\(baseURL)?key=\(geminiApiKey)") else {
-            throw ImageGenerationError.invalidURL
-        }
-        
-        // Prepare the request body following the official documentation
+        // Prepare the request body for image generation
         let requestBody: [String: Any] = [
             "contents": [
                 [
@@ -113,45 +117,68 @@ class ImageGenerationService: ObservableObject {
                 ]
             ],
             "generationConfig": [
-                "responseModalities": ["TEXT", "IMAGE"],
-                "temperature": 0.5,
+                "responseModalities": ["IMAGE", "TEXT"],
+                "temperature": 0.7,
                 "topK": 1,
                 "topP": 0.9,
-                "maxOutputTokens": 4096
+                "maxOutputTokens": 2048
             ]
         ]
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 120.0 // Longer timeout for combined operation
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        // Retry logic for transient server errors
+        let maxRetries = 3
+        var lastError: Error?
         
-        print("🎨 Calling Gemini API to generate image...")
-        print("🔑 API Key: \(String(geminiApiKey.prefix(10)))...")
-        print("🌐 URL: \(url)")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ImageGenerationError.apiError("Invalid HTTP response from Gemini API")
+        for attempt in 1...maxRetries {
+            do {
+                return try await performImageGenerationRequest(requestBody: requestBody)
+            } catch let error as ImageGenerationError {
+                // Check if it's a retryable error (500 Internal Server Error)
+                if case .apiError(let message) = error, message.contains("status 500") {
+                    lastError = error
+                    if attempt < maxRetries {
+                        let backoffDelay = calculateExponentialBackoff(attempt: attempt)
+                        print("⚠️ Gemini API 500 error on attempt \(attempt)/\(maxRetries), retrying in \(String(format: "%.1f", backoffDelay)) seconds...")
+                        try await Task.sleep(nanoseconds: UInt64(backoffDelay * 1_000_000_000))
+                        continue
+                    }
+                }
+                throw error
+            } catch {
+                lastError = error
+                if attempt < maxRetries {
+                    let backoffDelay = calculateExponentialBackoff(attempt: attempt)
+                    print("⚠️ Unexpected error on attempt \(attempt)/\(maxRetries), retrying in \(String(format: "%.1f", backoffDelay)) seconds...")
+                    try await Task.sleep(nanoseconds: UInt64(backoffDelay * 1_000_000_000))
+                    continue
+                }
+                throw error
+            }
         }
         
-        print("📡 Gemini HTTP Status: \(httpResponse.statusCode)")
+        // If we get here, all retries failed
+        throw lastError ?? ImageGenerationError.apiError("All retry attempts failed")
+    }
+    
+    private func calculateExponentialBackoff(attempt: Int) -> Double {
+        let baseDelay = 1.0 // Base delay in seconds
+        let maxDelay = 30.0 // Maximum delay in seconds
+        let multiplier = 2.0 // Exponential multiplier
         
-        guard httpResponse.statusCode == 200 else {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("❌ Gemini API Error: \(errorMessage)")
-            throw ImageGenerationError.apiError("Gemini API request failed with status \(httpResponse.statusCode): \(errorMessage)")
-        }
+        // Calculate exponential backoff: baseDelay * (multiplier ^ (attempt - 1))
+        let exponentialDelay = baseDelay * pow(multiplier, Double(attempt - 1))
         
-        // Parse the response to extract generated image data
-        return try parseImageResponse(data)
+        // Add jitter (±25% random variation) to prevent thundering herd
+        let jitter = exponentialDelay * 0.25 * (Double.random(in: -1.0...1.0))
+        let delayWithJitter = exponentialDelay + jitter
+        
+        // Cap at maximum delay
+        return min(delayWithJitter, maxDelay)
     }
     
     private func createGenerationPrompt(dishName: String, restaurantName: String?) -> String {
-        var prompt = """
-        Generate a representative image for restaurant "\(restaurantName)" and dish "\(dishName)".
+        let prompt = """
+        Generate a representative image for restaurant "\(restaurantName ?? "unknown")" and dish "\(dishName)".
         Search the restaurant and it's dish online first.
         Then generate the dish's image based on the search result.
         The generated image should be realistic.
@@ -178,8 +205,8 @@ class ImageGenerationService: ObservableObject {
             }
             
             // If no image data found, check for text response
-            if let text = parts?.first?["text"] as? String {
-                print("📄 Gemini text response: \(text)")
+            if parts?.first?["text"] != nil {
+                // print("📄 Gemini text response: \(text)")
                 throw ImageGenerationError.apiError("Gemini did not provide generated image data")
             }
             
@@ -196,6 +223,42 @@ class ImageGenerationService: ObservableObject {
             }
             throw ImageGenerationError.apiError("Failed to parse Gemini API response: \(error.localizedDescription)")
         }
+    }
+    
+    private func performImageGenerationRequest(requestBody: [String: Any]) async throws -> Data {
+        // Use the service's geminiApiKey property, which supports env/config fallback
+        guard !geminiApiKey.isEmpty, geminiApiKey != "YOUR_GEMINI_API_KEY" else {
+            throw ImageGenerationError.apiError("Gemini API key not configured")
+        }
+        
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=\(geminiApiKey)")!
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 60.0
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        
+        print("🎨 Calling Gemini API to generate image...")
+        print("🔑 API Key: \(String(geminiApiKey.prefix(10)))...")
+        print("🌐 URL: \(url)")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ImageGenerationError.apiError("Invalid HTTP response from Gemini API")
+        }
+        
+        print("📡 Gemini HTTP Status: \(httpResponse.statusCode)")
+        
+        guard httpResponse.statusCode == 200 else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            print("❌ Gemini API Error: \(errorMessage)")
+            throw ImageGenerationError.apiError("Gemini API request failed with status \(httpResponse.statusCode): \(errorMessage)")
+        }
+        
+        // Parse the response to extract generated image data
+        return try parseImageResponse(data)
     }
 }
 

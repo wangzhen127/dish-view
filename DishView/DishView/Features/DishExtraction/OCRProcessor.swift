@@ -21,17 +21,7 @@ class OCRProcessor: ObservableObject {
         return extractedTexts
     }
     
-    func extractRestaurantName(from images: [UIImage]) async throws -> String? {
-        // This function is now deprecated - use extractMenuData instead
-        let menuData = try await extractMenuData(from: images)
-        return menuData.restaurantName
-    }
-    
-    func extractDishes(from images: [UIImage]) async throws -> [Dish] {
-        // This function is now deprecated - use extractMenuData instead
-        let menuData = try await extractMenuData(from: images)
-        return menuData.dishes
-    }
+
     
     func extractMenuData(from images: [UIImage]) async throws -> MenuData {
         guard let firstImage = images.first else {
@@ -81,43 +71,7 @@ class OCRProcessor: ObservableObject {
         return try await geminiService.analyzeImage(image, prompt: prompt) ?? ""
     }
     
-    private func parseDishesFromJSON(_ jsonString: String?) -> [Dish] {
-        guard let jsonString = jsonString else {
-            return []
-        }
-        
-        // Clean up the JSON string - remove markdown code blocks if present
-        var cleanJSON = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Remove markdown code blocks (```json ... ```)
-        if cleanJSON.hasPrefix("```json") {
-            cleanJSON = String(cleanJSON.dropFirst(7)) // Remove "```json"
-        }
-        if cleanJSON.hasPrefix("```") {
-            cleanJSON = String(cleanJSON.dropFirst(3)) // Remove "```"
-        }
-        if cleanJSON.hasSuffix("```") {
-            cleanJSON = String(cleanJSON.dropLast(3)) // Remove "```"
-        }
-        
-        cleanJSON = cleanJSON.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard let data = cleanJSON.data(using: .utf8) else {
-            print("Failed to convert JSON string to data")
-            return []
-        }
-        
-        do {
-            let decoder = JSONDecoder()
-            let response = try decoder.decode(DishResponse.self, from: data)
-            print("Successfully parsed \(response.dishes.count) dishes")
-            return response.dishes
-        } catch {
-            print("Failed to parse dishes JSON: \(error)")
-            print("Cleaned JSON: \(cleanJSON)")
-            return []
-        }
-    }
+
     
     private func parseMenuDataFromJSON(_ jsonString: String?) -> MenuData {
         guard let jsonString = jsonString else {
@@ -162,7 +116,7 @@ class OCRProcessor: ObservableObject {
 
 class GeminiService {
     private let apiKey: String
-    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     
     init() {
         // Load API key from configuration
@@ -286,10 +240,6 @@ class GeminiService {
 }
 
 // MARK: - Data Models
-
-struct DishResponse: Codable {
-    let dishes: [Dish]
-}
 
 struct MenuDataResponse: Codable {
     let restaurantName: String?

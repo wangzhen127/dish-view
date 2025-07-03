@@ -4,7 +4,6 @@ import Foundation
 struct Dish: Identifiable, Codable {
     var id = UUID()
     var name: String
-    var imageURL: String?
     var image: UIImage?
     var section: String?
     var price: String?
@@ -20,14 +19,13 @@ struct Dish: Identifiable, Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, imageURL, section, price, description, image
+        case id, name, section, price, description, image
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
         name = try container.decode(String.self, forKey: .name)
-        imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
         section = try container.decodeIfPresent(String.self, forKey: .section)
         price = try container.decodeIfPresent(String.self, forKey: .price)
         description = try container.decodeIfPresent(String.self, forKey: .description)
@@ -39,7 +37,6 @@ struct Dish: Identifiable, Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encodeIfPresent(imageURL, forKey: .imageURL)
         try container.encodeIfPresent(section, forKey: .section)
         try container.encodeIfPresent(price, forKey: .price)
         try container.encodeIfPresent(description, forKey: .description)
